@@ -1,0 +1,1699 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Retrofit LED da Casa</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:ital,wght@0,400;0,500;0,600;1,500&display=swap">
+<style>
+/* Layout: folha de projeto — carimbo no topo, painel de entradas fixo à esquerda (casa + cômodos), pranchas de resultado à direita; uma coluna no celular. */
+:root {
+  --bg: #edf1f5;
+  --grid: rgba(31, 94, 150, .06);
+  --surface: #ffffff;
+  --ink: #132130;
+  --muted: #55667a;
+  --line: #cfd8e1;
+  --blue: #1f5e96;
+  --blue-soft: rgba(31, 94, 150, .08);
+  --led: #e3a008;
+  --led-ink: #8a5b00;
+  --led-soft: rgba(227, 160, 8, .18);
+  --old: #7b8e9f;
+  --old-soft: rgba(123, 142, 159, .18);
+  --good: #1d7f48;
+  --good-soft: rgba(29, 127, 72, .12);
+  --bad: #b93a2b;
+  --bad-soft: rgba(185, 58, 43, .10);
+  --room: #fbfcfd;
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Barlow", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1520; --grid: rgba(111, 177, 236, .06); --surface: #112030; --ink: #e3ebf3; --muted: #92a5b8; --line: #23384c;
+    --blue: #6fb1ec; --blue-soft: rgba(111, 177, 236, .10);
+    --led: #ffc23d; --led-ink: #ffcf66; --led-soft: rgba(255, 194, 61, .18);
+    --old: #8fa3b5; --old-soft: rgba(143, 163, 181, .18);
+    --good: #4cc27f; --good-soft: rgba(76, 194, 127, .14);
+    --bad: #ff6f5e; --bad-soft: rgba(255, 111, 94, .13);
+    --room: #0e1b28;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1520; --grid: rgba(111, 177, 236, .06); --surface: #112030; --ink: #e3ebf3; --muted: #92a5b8; --line: #23384c;
+  --blue: #6fb1ec; --blue-soft: rgba(111, 177, 236, .10);
+  --led: #ffc23d; --led-ink: #ffcf66; --led-soft: rgba(255, 194, 61, .18);
+  --old: #8fa3b5; --old-soft: rgba(143, 163, 181, .18);
+  --good: #4cc27f; --good-soft: rgba(76, 194, 127, .14);
+  --bad: #ff6f5e; --bad-soft: rgba(255, 111, 94, .13);
+  --room: #0e1b28;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink);
+  font: 16px/1.5 var(--f-body);
+  font-variant-numeric: tabular-nums;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 48px;
+}
+table { font-size: inherit; color: inherit; }
+sub { font-size: .7em; line-height: 0; }
+.wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+/* Carimbo */
+.carimbo { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); background: var(--surface); border: 2px solid var(--ink); }
+@media (max-width: 820px) { .carimbo { grid-template-columns: minmax(0, 1fr); } }
+.carimbo .titulo { padding: 18px 20px; border-right: 2px solid var(--ink); display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+@media (max-width: 820px) { .carimbo .titulo { border-right: 0; border-bottom: 2px solid var(--ink); } }
+h1 {
+  font: 700 clamp(28px, 4.4vw, 42px)/1 var(--f-display); margin: 0; text-wrap: balance; letter-spacing: -.005em;
+}
+h1 span { color: var(--led-ink); }
+.titulo p { margin: 0; color: var(--muted); max-width: 60ch; font-size: 15px; }
+.cells { display: grid; grid-template-columns: 1fr 1fr; }
+.cell { padding: 9px 14px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); min-width: 0; }
+.cell:nth-child(odd) { border-left: 0; }
+.cell .lab { font: 600 10.5px/1 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--blue); }
+.cell .val { font: 600 15px/1.25 var(--f-display); margin-top: 4px; overflow-wrap: anywhere; }
+.cell.btn { display: flex; align-items: center; border-bottom: 0; }
+.cell.btn button { margin: 0; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; align-items: start; }
+.parte { display: flex; align-items: baseline; gap: 12px; margin: 18px 0 -4px; padding-bottom: 8px; border-bottom: 2px solid var(--ink); }
+.parte b { font: 700 13px/1 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--blue); white-space: nowrap; }
+.parte h2 { margin: 0; font: 700 22px/1.1 var(--f-display); letter-spacing: .02em; text-transform: uppercase; }
+.parte span { font-size: 13px; color: var(--muted); margin-left: auto; text-align: right; }
+@media (max-width: 700px) { .parte { flex-wrap: wrap; } .parte span { margin-left: 0; text-align: left; } }
+
+/* Entradas */
+form { background: var(--surface); border: 1px solid var(--line); padding: 4px 18px 18px; }
+@media (min-width: 901px) {
+  form fieldset, form .adv-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  form fieldset > .field.full { grid-column: auto; }
+  form #rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); align-items: start; }
+  #calc, #reset { max-width: 420px; margin-left: auto; margin-right: auto; display: block; }
+}
+fieldset { border: 0; border-top: 1px solid var(--line); margin: 0; padding: 12px 0 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; align-items: start; }
+fieldset:first-of-type { border-top: 0; }
+legend { font: 700 15px/1 var(--f-display); letter-spacing: .04em; text-transform: uppercase; padding: 12px 0 4px; float: left; width: 100%; grid-column: 1 / -1; }
+legend b { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 8px; border: 1.5px solid var(--blue); color: var(--blue); font-size: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field.full { grid-column: 1 / -1; }
+label { font-size: 13px; color: var(--muted); line-height: 1.3; }
+i.s { font-style: italic; font-weight: 500; color: var(--blue); margin-right: 4px; }
+input[type="text"], select {
+  width: 100%; font: 500 15px/1.2 var(--f-body); color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 3px; padding: 8px 9px;
+}
+input[type="text"]:focus-visible, select:focus-visible, button:focus-visible, input[type="checkbox"]:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--blue); outline-offset: 2px;
+}
+input[aria-invalid="true"] { border-color: var(--bad); background: var(--bad-soft); }
+input:disabled { color: var(--muted); }
+.check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); grid-column: 1 / -1; }
+.hint { font-size: 13px; line-height: 1.5; color: var(--muted); grid-column: 1 / -1; margin: 0; padding: 7px 10px; background: var(--blue-soft); border-left: 2px solid var(--blue); }
+.hint:empty { display: none; }
+.hint strong { color: var(--ink); font-weight: 600; }
+.intro { font-size: 14px; line-height: 1.5; color: var(--muted); margin: 14px 0 0; }
+.ajuda { font-size: 12px; line-height: 1.4; color: var(--muted); }
+p.ajuda { margin: 8px 0 4px; }
+.avancado { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
+.avancado > summary { font: 700 15px/1.2 var(--f-display); letter-spacing: .04em; text-transform: uppercase; padding: 4px 0; }
+.adv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; align-items: start; margin-top: 8px; }
+button {
+  font: 600 13px/1 var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); background: transparent;
+  border: 1px solid var(--line); border-radius: 3px; padding: 10px 12px; cursor: pointer; margin-top: 14px; width: 100%;
+}
+button:hover { border-color: var(--blue); color: var(--blue); }
+button:disabled { opacity: .45; cursor: default; }
+.calc { background: var(--blue); border-color: var(--blue); color: #fff; font-size: 15px; padding: 14px 12px; }
+.calc:hover { color: #fff; filter: brightness(1.1); }
+p.calc-nota { margin: 6px 0 0; text-align: center; }
+.results.piscar > .parte:first-of-type { animation: piscar 1.2s ease-out; }
+@keyframes piscar { 0% { box-shadow: 0 0 0 4px var(--blue); } 100% { box-shadow: 0 0 0 0 transparent; } }
+button.add { border: 1.5px dashed var(--blue); color: var(--blue); grid-column: 1 / -1; margin-top: 4px; }
+
+/* Cartões de cômodo */
+#rooms { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
+.room { border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 3px; background: var(--surface); }
+.room.erro { border-left-color: var(--bad); }
+.room > summary { display: flex; gap: 8px; align-items: baseline; padding: 9px 10px; cursor: pointer; font: 600 15px/1.25 var(--f-display); }
+.room > summary .rn { color: var(--blue); font-weight: 700; flex: none; }
+.room > summary .rt { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.room > summary .rs { color: var(--muted); font-size: 13px; font-weight: 500; flex: none; }
+.room.erro > summary .rs { color: var(--bad); }
+.room-body { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; align-items: start; padding: 2px 10px 12px; border-top: 1px solid var(--line); }
+.sep { grid-column: 1 / -1; font: 700 11.5px/1 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--blue); padding-top: 10px; margin-top: 2px; border-top: 1px dashed var(--line); }
+.sep:first-child { border-top: 0; }
+.mini-det { grid-column: 1 / -1; }
+.mini-det > summary { font: 600 13px/1.3 var(--f-body); color: var(--blue); cursor: pointer; }
+.mini-det .adv-grid { margin-top: 8px; }
+.room-btns { grid-column: 1 / -1; display: flex; gap: 8px; }
+.room-btns button { margin-top: 4px; }
+
+/* Resultados */
+.results { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); padding: 18px 20px; min-width: 0; }
+.tag { font: 600 11px/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: var(--blue); }
+.panel h2 { font: 700 22px/1.15 var(--f-display); margin: 6px 0 4px; }
+.panel .sub { margin: 0 0 14px; color: var(--muted); font-size: 14.5px; }
+.panel-head { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+
+.verdict { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--line); }
+.verdict > div { padding: 16px 18px; border-left: 1px solid var(--line); min-width: 0; }
+.verdict > div:first-child { border-left: 0; }
+@media (max-width: 640px) {
+  .verdict { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .verdict > div:nth-child(3) { border-left: 0; }
+  .verdict > div:nth-child(n+3) { border-top: 1px solid var(--line); }
+}
+.k-label { font: 600 12px/1.2 var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.k-value { font: 700 36px/1.05 var(--f-display); margin-top: 6px; }
+.k-value small { font-size: .5em; font-weight: 600; color: var(--muted); margin-left: 3px; }
+.k-note { font-size: 13.5px; color: var(--muted); margin-top: 4px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+.pill { display: inline-block; font: 700 11px/1 var(--f-display); letter-spacing: .08em; padding: 4px 7px; border-radius: 2px; white-space: nowrap; }
+.pill.ok { color: var(--good); background: var(--good-soft); }
+.pill.no { color: var(--bad); background: var(--bad-soft); }
+.pill.na { color: var(--muted); background: var(--old-soft); }
+.pill.warn { color: var(--led-ink); background: var(--led-soft); }
+
+/* Plantas dos cômodos */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; flex: none; }
+.seg button { margin: 0; width: auto; border: 0; border-radius: 0; padding: 9px 14px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--blue); color: var(--surface); }
+.plans { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.plan { margin: 0; min-width: 0; border: 1px solid var(--line); display: flex; flex-direction: column; }
+.plan .pbox { flex: 1; display: flex; align-items: center; justify-content: center; padding: 8px; background: var(--room); }
+.plan .pbox svg { display: block; max-width: 100%; height: auto; }
+.plan figcaption { display: flex; flex-direction: column; gap: 3px; padding: 8px 11px; border-top: 1px solid var(--line); font-size: 13.5px; }
+.plan figcaption .pn { display: flex; align-items: center; gap: 8px; font: 700 14px/1.2 var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
+.plan figcaption .pn svg { width: 30px; height: 14px; flex: none; }
+.plan figcaption .pd { color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.legenda { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+.legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.legenda svg { width: 30px; height: 14px; }
+
+/* Barras */
+.bars { display: flex; flex-direction: column; gap: 14px; }
+.grp { display: flex; flex-direction: column; gap: 5px; }
+.grp-name { font: 600 14px/1.2 var(--f-display); display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; }
+.grp-name span { color: var(--muted); font-weight: 500; }
+.bar-row { display: grid; grid-template-columns: 62px minmax(0, 1fr) 92px; gap: 10px; align-items: center; }
+.bar-row .name { font: 600 11.5px/1.2 var(--f-display); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.bar-row .val { font: 600 14.5px/1 var(--f-display); text-align: right; }
+.track { position: relative; height: 16px; background: var(--bg); }
+.fill { position: absolute; left: 0; top: 0; bottom: 0; transition: width .35s ease; }
+.fill.old { background: var(--old); }
+.fill.led { background: var(--led); }
+.fill.ctrl { background: var(--good); }
+.marker { position: absolute; top: -4px; bottom: -4px; width: 0; border-left: 2px dashed var(--blue); }
+.marker span { position: absolute; top: -17px; left: 0; transform: translateX(-50%); font: 600 11.5px/1 var(--f-display); white-space: nowrap; color: var(--blue); }
+.bar-total { border-top: 2px solid var(--ink); padding-top: 10px; }
+.eco { display: flex; flex-direction: column; gap: 10px; }
+.eco-row { display: grid; grid-template-columns: minmax(96px, 30%) minmax(0, 1fr) 96px; gap: 12px; align-items: center; }
+.eco-name { font: 600 14px/1.2 var(--f-display); }
+.eco-name small { display: block; font: 500 12px/1.3 var(--f-body); color: var(--muted); margin-top: 2px; }
+.eco-track { position: relative; height: 20px; background: var(--bg); }
+.eco-fill { position: absolute; top: 0; bottom: 0; transition: left .35s ease, width .35s ease; }
+.eco-fill.pos { background: var(--good); }
+.eco-fill.neg { background: var(--bad); }
+.eco-zero { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ink); }
+.eco-val { font: 600 14.5px/1 var(--f-display); text-align: right; }
+.eco-val.neg { color: var(--bad); }
+.eco-row.tot { border-top: 2px solid var(--ink); padding-top: 10px; }
+.eco-row.tot .eco-val { font-size: 16px; }
+@media (max-width: 560px) { .eco-row { grid-template-columns: minmax(0, 1fr) 84px; } .eco-track { grid-column: 1 / -1; grid-row: 2; } }
+@media (prefers-reduced-motion: reduce) { .eco-fill { transition: none; } }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 1100px) { .two { grid-template-columns: minmax(0, 1fr); } }
+
+.tbl-wrap { overflow-x: auto; }
+table.cmp { width: 100%; border-collapse: collapse; }
+table.cmp th, table.cmp td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+table.cmp th:first-child, table.cmp td:first-child { text-align: left; white-space: normal; color: var(--muted); }
+table.cmp thead th { font: 700 12px/1.15 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--blue); border-bottom: 2px solid var(--ink); vertical-align: bottom; }
+table.cmp td { font: 600 15px/1.3 var(--f-display); }
+table.cmp td:first-child { font: 400 15px/1.3 var(--f-body); }
+table.cmp tr:last-child td { border-bottom: 0; }
+table.cmp tr.tot td { border-top: 2px solid var(--ink); font-weight: 700; color: var(--ink); }
+table.cmp td.l { text-align: left; white-space: normal; font: 400 14px/1.35 var(--f-body); color: var(--muted); }
+table.cmp td .seta { color: var(--muted); font-weight: 500; }
+
+.chart svg { width: 100%; height: auto; display: block; }
+.chart text { font-family: var(--f-display); font-size: 13px; font-weight: 500; fill: var(--muted); }
+
+/* Diagnóstico */
+.veredito { display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; margin-top: 4px; border-left: 4px solid var(--good); background: var(--good-soft); }
+.veredito.no { border-color: var(--bad); background: var(--bad-soft); }
+.veredito.warn { border-color: var(--led); background: var(--led-soft); }
+.veredito strong { display: block; font: 700 20px/1.2 var(--f-display); }
+.veredito p { margin: 4px 0 0; }
+.diag h3 { font: 700 14px/1.2 var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--blue); margin: 20px 0 6px; }
+.diag p { margin: 0; max-width: 76ch; }
+.diag p + p { margin-top: 8px; }
+.diag p.local { margin: 0 0 12px; color: var(--muted); }
+.diag p.local strong { color: var(--ink); }
+.diag ul { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 76ch; }
+.mini { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); margin-bottom: 14px; }
+.mini > div { padding: 9px 12px; border-left: 1px solid var(--line); min-width: 0; }
+.mini > div:first-child { border-left: 0; }
+.mini .lab { font: 600 10.5px/1.2 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--blue); }
+.mini .val { font: 700 22px/1.2 var(--f-display); margin-top: 4px; }
+@media (max-width: 640px) {
+  .mini { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mini > div:nth-child(3) { border-left: 0; }
+  .mini > div:nth-child(n+3) { border-top: 1px solid var(--line); }
+}
+
+details { font-size: 15px; }
+.memorial > summary { cursor: pointer; font: 700 20px/1.2 var(--f-display); }
+.formulas { display: grid; gap: 10px; margin-top: 14px; }
+.formulas h4 { font: 700 14px/1.2 var(--f-display); letter-spacing: .08em; text-transform: uppercase; margin: 10px 0 0; }
+.formulas div { font: 500 15px/1.5 var(--f-body); background: var(--bg); border-left: 2px solid var(--blue); padding: 9px 12px; overflow-x: auto; white-space: nowrap; }
+.formulas div b { font: 700 11px/1 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--blue); display: block; margin-bottom: 5px; white-space: normal; }
+
+.error { color: var(--bad); font-weight: 600; margin: 0; }
+footer { color: var(--muted); font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+
+@media print {
+  body { background: #fff; padding: 0; }
+  form, .cell.btn, .seg, #err { display: none !important; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .panel, .verdict, .plan { break-inside: avoid; }
+}
+</style>
+
+<div class="wrap">
+  <header class="carimbo">
+    <div class="titulo">
+      <h1>Retrofit de iluminação <span>da casa</span></h1>
+      <p>Retrofit não é só trocar a lâmpada que queimou: é refazer a iluminação de cada cômodo. A calculadora confere a luz recomendada para cada um, recalcula quantas lâmpadas LED são necessárias, soma o gasto com troca de lâmpadas e o efeito de sensores, e mostra se o investimento na casa toda se paga. Valores iniciais: casa de exemplo do programa em Python.</p>
+    </div>
+    <div class="cells">
+      <div class="cell"><div class="lab">Disciplina</div><div class="val">Eficiência e Gestão Energética</div></div>
+      <div class="cell"><div class="lab">Trabalho</div><div class="val">AB2</div></div>
+      <div class="cell"><div class="lab">Referências</div><div class="val">Faixas para casas (trabalho, seção 4.2) · NBR ISO/CIE 8995-1 (escritório)</div></div>
+      <div class="cell"><div class="lab">Método</div><div class="val">Método dos Lúmens</div></div>
+      <div class="cell"><div class="lab">Análise econômica</div><div class="val">Payback, VPL e TIR</div></div>
+      <div class="cell"><div class="lab">Imóvel</div><div class="val" id="cel-local">—</div></div>
+      <div class="cell btn"><button type="button" id="theme">Tema claro</button></div>
+      <div class="cell btn"><button type="button" id="print">Imprimir / PDF</button></div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="parte"><b>Parte 1</b><h2>Dados da casa</h2><span>Preencha e depois clique em “Calcular resultados”</span></div>
+    <form id="form" novalidate>
+      <p class="intro">Preencha com os dados da sua casa, um cômodo de cada vez. Os valores já preenchidos são um exemplo: troque só o que souber. O que você digitar fica guardado neste navegador.</p>
+
+      <fieldset>
+        <legend><b>1</b>A casa</legend>
+        <div class="field full">
+          <label for="local">Qual é a casa? (nome ou endereço)</label>
+          <input type="text" id="local" value="Casa hipotética (estudo de caso)">
+          <small class="ajuda">Só para identificar a casa no relatório.</small>
+        </div>
+        <div class="field full"><label for="da">Dias de uso por ano</label><input type="text" id="da" inputmode="numeric" value="365"><small class="ajuda">Casa onde se mora: 365. Casa de praia ou de fim de semana: bem menos.</small></div>
+      </fieldset>
+
+      <fieldset>
+        <legend><b>2</b>Cômodos</legend>
+        <p class="hint">Cada cômodo tem o tamanho, as lâmpadas de hoje, o LED que vai entrar e quantas horas a luz fica acesa. Clique no nome para abrir ou fechar.</p>
+        <div id="rooms"></div>
+        <button type="button" class="add" id="add">+ Adicionar cômodo</button>
+      </fieldset>
+
+      <fieldset>
+        <legend><b>3</b>Conta de luz</legend>
+        <div class="field full"><label for="tar">Preço do kWh com impostos (R$)</label><input type="text" id="tar" inputmode="decimal" value="0,95"><small class="ajuda">Na conta de luz: divida o valor total a pagar pelo consumo do mês em kWh.</small></div>
+        <label class="check"><input type="checkbox" id="th"><span>A casa tem Tarifa Branca (preço muda com o horário)</span></label>
+        <p class="hint" data-th hidden>Na Tarifa Branca, nos dias úteis, o kWh custa mais no início da noite (<strong>ponta</strong>, 3 horas, em geral das 18h às 21h) e um pouco mais na hora antes e na hora depois (<strong>intermediário</strong>). No resto do dia, nos fins de semana e nos feriados vale o preço mais barato (<strong>fora de ponta</strong>). Informe as horas de ponta de cada cômodo dentro do cartão dele.</p>
+        <div class="field" data-th hidden><label for="tp">Preço do kWh na ponta (R$)</label><input type="text" id="tp" inputmode="decimal" value="1,90"></div>
+        <div class="field" data-th hidden><label for="ti">Preço do kWh no intermediário (R$)</label><input type="text" id="ti" inputmode="decimal" value="1,20"></div>
+        <div class="field full" data-th hidden><label for="tf">Preço do kWh fora de ponta (R$)</label><input type="text" id="tf" inputmode="decimal" value="0,80"><small class="ajuda">Os três preços vêm na conta ou no site da distribuidora, já com impostos.</small></div>
+      </fieldset>
+
+      <fieldset>
+        <legend><b>4</b>Instalação e sensores</legend>
+        <div class="field full"><label for="inst">Mão de obra por lâmpada (R$)</label><input type="text" id="inst" inputmode="decimal" value="10"><small class="ajuda">Vale para a troca e para cada reposição. Use 0 se você mesmo for trocar.</small></div>
+        <label class="check"><input type="checkbox" id="ctrl" checked><span>Usar sensores e controles nos cômodos</span></label>
+        <p class="hint" data-ctrl>Sensor de presença, temporizador e dimmer apagam ou diminuem a luz quando ela não é necessária. Escolha em quais cômodos usar em “Sensores neste cômodo”, dentro de cada cartão.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend><b>5</b>Análise do investimento</legend>
+        <div class="field"><label for="tma">Quanto o dinheiro renderia aplicado (% ao ano)</label><input type="text" id="tma" inputmode="decimal" value="12"><small class="ajuda">Taxa mínima de atratividade (TMA): o rendimento de uma aplicação segura.</small></div>
+        <div class="field"><label for="hz">Por quantos anos analisar</label><input type="text" id="hz" inputmode="numeric" value="10"><small class="ajuda" id="vida-led"></small></div>
+      </fieldset>
+
+      <details class="avancado">
+        <summary>Ajustes técnicos (opcional)</summary>
+        <p class="ajuda">Pode deixar como está. Estes valores já vêm com padrões usuais do Método dos Lúmens.</p>
+        <div class="adv-grid">
+          <div class="field"><label for="plano"><i class="s">h<sub>pt</sub></i>Altura onde a luz é medida (m)</label><input type="text" id="plano" inputmode="decimal" value="0,75"><small class="ajuda">Plano de trabalho: altura de uma mesa ou bancada.</small></div>
+          <div class="field"><label for="fm"><i class="s">F<sub>m</sub></i>Fator de manutenção</label><input type="text" id="fm" inputmode="decimal" value="0,80"><small class="ajuda">Perda de luz por sujeira e desgaste.</small></div>
+          <div class="field"><label for="ra_l"><i class="s">R<sub>a</sub></i>IRC dos LEDs</label><input type="text" id="ra_l" inputmode="decimal" value="80"><small class="ajuda">Fidelidade das cores; vem na embalagem.</small></div>
+          <div class="field"><label for="ugr_l"><i class="s">UGR</i>das luminárias</label><input type="text" id="ugr_l" inputmode="decimal" value="0"><small class="ajuda">Ofuscamento, só em catálogos. 0 = não sei. Só conta no escritório.</small></div>
+          <p class="hint">O F<sub>u</sub> (parte da luz que chega à altura medida) é calculado sozinho para cada cômodo, pelo formato dele.</p>
+        </div>
+      </details>
+
+      <button type="button" class="calc" id="calc">Calcular resultados</button>
+      <p class="ajuda calc-nota">Os resultados também se atualizam sozinhos a cada número digitado.</p>
+      <button type="button" id="reset">Restaurar casa de exemplo</button>
+    </form>
+
+    <div class="results" id="results">
+      <p class="error" id="err" hidden>Corrija os campos destacados em vermelho para atualizar os resultados. Cômodos com erro ficam com a borda vermelha.</p>
+
+      <div class="parte"><b>Parte 2</b><h2>Cálculos</h2><span>As contas e tabelas feitas com os dados acima</span></div>
+
+      <section class="panel">
+        <details class="memorial" open>
+          <summary>Memorial de cálculo (as contas passo a passo)</summary>
+          <div class="formulas" id="formulas"></div>
+        </details>
+      </section>
+
+      <section class="panel">
+        <div class="tag">Cômodo por cômodo</div>
+        <h2>Hoje × com LED em cada cômodo</h2>
+        <p class="sub">A seta mostra a mudança: valor de hoje → valor com LED<span id="tbl-c-sub"></span>.</p>
+        <div class="tbl-wrap"><table class="cmp" id="tbl-comodos"></table></div>
+      </section>
+
+      <section class="panel">
+        <div class="tag">Ciclo de vida</div>
+        <h2>Troca de lâmpadas queimadas</h2>
+        <p class="sub">Toda lâmpada queima um dia e precisa ser comprada e trocada de novo. Quanto mais ela dura, menos se gasta com manutenção. Valores da casa toda, em média por ano.</p>
+        <div class="tbl-wrap"><table class="cmp" id="tbl-vida"></table></div>
+      </section>
+
+      <section class="panel">
+        <div class="tag">Automação</div>
+        <h2>Sensores e controles</h2>
+        <p class="sub">Sensor de presença, temporizador e dimmer: a luz fica acesa só quando e quanto precisa.</p>
+        <p class="hint" id="ctrl-txt"></p>
+        <div id="ctrl-wrap">
+          <div class="tbl-wrap"><table class="cmp" id="tbl-ctrl-c"></table></div>
+          <div class="tbl-wrap" style="margin-top:16px"><table class="cmp" id="tbl-ctrl"></table></div>
+        </div>
+      </section>
+
+      <section class="panel" id="hor-panel" hidden>
+        <div class="tag">Tarifa Branca</div>
+        <h2>Economia por horário</h2>
+        <p class="sub">Separa a energia gasta na ponta, no intermediário e fora de ponta, somando todos os cômodos.</p>
+        <div class="tbl-wrap"><table class="cmp" id="tbl-hor"></table></div>
+      </section>
+
+      <section class="panel">
+        <div class="tag">Economia</div>
+        <h2>Vale mais que deixar o dinheiro aplicado?</h2>
+        <p class="sub" id="viab-sub"></p>
+        <div class="mini" id="viab-kpis"></div>
+        <div class="tbl-wrap"><table class="cmp" id="tbl-fluxo"></table></div>
+      </section>
+
+      <section class="panel">
+        <div class="tag">Resumo</div>
+        <h2>A casa toda: três caminhos comparados</h2>
+        <p class="sub"><strong>Troca direta:</strong> uma LED no lugar de cada lâmpada de hoje, sem sensores. <strong>Otimizada:</strong> LEDs na quantidade certa para a luz recomendada, com os sensores escolhidos.</p>
+        <div class="tbl-wrap"><table class="cmp" id="tbl"></table></div>
+      </section>
+
+      <div class="parte"><b>Parte 3</b><h2>Gráficos</h2><span>Os resultados em desenho</span></div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Luminotécnica</div>
+            <h2>Planta dos cômodos</h2>
+          </div>
+          <div class="seg" role="group" aria-label="Escolha o que mostrar na planta">
+            <button type="button" id="v-hoje" aria-pressed="false">Hoje</button>
+            <button type="button" id="v-led" aria-pressed="true">Com LED</button>
+          </div>
+        </div>
+        <p class="sub">Vista de cima de cada cômodo, todos na mesma escala, com as lâmpadas espalhadas por igual. Desenho ilustrativo.</p>
+        <div class="plans" id="plans"></div>
+        <div class="legenda" id="legenda"></div>
+      </section>
+
+      <div class="two">
+        <section class="panel">
+          <div class="tag">Luminotécnica</div>
+          <h2>Quanta luz cada cômodo recebe</h2>
+          <p class="sub">Em relação à luz recomendada para o uso do cômodo. A linha tracejada é o mínimo (100 %).</p>
+          <div class="bars" id="bars-lux"></div>
+        </section>
+        <section class="panel">
+          <div class="tag">Energia</div>
+          <h2>Energia gasta por ano</h2>
+          <p class="sub" id="cons-sub"></p>
+          <div class="bars" id="bars-kwh"></div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="tag">Economia</div>
+        <h2>Quanto cada cômodo economiza por ano</h2>
+        <p class="sub" id="eco-sub"></p>
+        <div class="eco" id="bars-eco"></div>
+      </section>
+
+      <section class="panel chart">
+        <div class="tag">Economia</div>
+        <h2>Quando a troca da casa se paga</h2>
+        <p class="sub" id="pb-sub"></p>
+        <div id="pb-chart"></div>
+      </section>
+
+      <div class="parte"><b>Parte 4</b><h2>Respostas</h2><span>O que a análise conclui</span></div>
+
+      <div class="verdict" id="kpis"></div>
+
+      <section class="panel">
+        <div class="tag">Prioridade</div>
+        <h2>Por onde começar a troca</h2>
+        <p class="sub">Cômodos em ordem do retorno mais rápido. Se o dinheiro for curto, comece pelos primeiros.</p>
+        <div class="tbl-wrap"><table class="cmp" id="tbl-prio"></table></div>
+      </section>
+
+      <section class="panel diag">
+        <div class="tag">Relatório</div>
+        <h2>Diagnóstico da casa</h2>
+        <div id="diag"></div>
+      </section>
+
+      <footer>Mesmas fórmulas e tabelas de <code>calculadora_retrofit.py</code>. Luz recomendada nas casas: valor dentro das faixas de referência do trabalho escrito (seção 4.2), para iluminação geral; a NBR ISO/CIE 8995-1 não traz valores para residências; escritório em casa pela NBR ISO/CIE 8995-1. F<sub>u</sub> estimado para luminária de distribuição direta e refletâncias teto/parede/piso de 70/50/20 %. Tarifa Branca: cerca de 252 dias úteis por ano. Fator de emissão do SIN: 0,0385 kg CO₂/kWh.</footer>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Luz mínima por uso: nome, Em (lx), UGR máx. (0 = não se aplica), Ra mín.
+  // Casas: faixas de referência do trabalho escrito (seção 4.2), iluminação geral. Escritório: NBR ISO/CIE 8995-1.
+  var AMBIENTES = [
+    ["Sala de estar / jantar", 150, 0, 80],
+    ["Cozinha", 150, 0, 80],
+    ["Quarto", 150, 0, 80],
+    ["Banheiro", 200, 0, 80],
+    ["Corredor, hall ou escada", 100, 0, 80],
+    ["Garagem, despensa ou área de serviço", 100, 0, 80],
+    ["Escritório em casa (home office)", 500, 19, 80]
+  ];
+  // Lâmpadas de hoje: potência (W), luz (lm), reator (W), vida (h), preço de reposição (R$), formato
+  var LAMP_HOJE = {
+    inc60: ["Incandescente 60 W", 60, 800, 0, 1000, 6, "bulbo"],
+    hal42: ["Halógena 42 W", 42, 630, 0, 2000, 12, "bulbo"],
+    fc15: ["Fluorescente compacta 15 W", 15, 850, 0, 6000, 12, "bulbo"],
+    fc25: ["Fluorescente compacta 25 W", 25, 1500, 0, 8000, 18, "bulbo"],
+    ft20: ["Fluorescente tubular 20 W", 20, 1050, 5, 7500, 10, "tubo"],
+    ft40: ["Fluorescente tubular 40 W", 40, 2700, 8, 7500, 12, "tubo"]
+  };
+  // LEDs: potência (W), luz (lm), vida (h), preço (R$), formato
+  var LAMP_LED = {
+    b9: ["Bulbo LED 9 W", 9, 850, 15000, 10, "bulbo"],
+    b12: ["Bulbo LED 12 W", 12, 1100, 15000, 14, "bulbo"],
+    b15: ["Bulbo LED 15 W", 15, 1500, 15000, 20, "bulbo"],
+    t9: ["Tubo LED 9 W (60 cm)", 9, 900, 25000, 18, "tubo"],
+    t18: ["Tubo LED 18 W (120 cm)", 18, 2000, 25000, 35, "tubo"],
+    p18: ["Plafon LED 18 W", 18, 1650, 25000, 45, "bulbo"]
+  };
+  // Cômodos que já têm LED: as mesmas lâmpadas da lista de LEDs, com a chave "l" + chave do LED.
+  // Nesses cômodos as lâmpadas ficam; só se acrescentam LEDs se faltar luz.
+  var HOJE_LED = {};
+  Object.keys(LAMP_LED).forEach(function (k) {
+    var p = LAMP_LED[k];
+    LAMP_HOJE["l" + k] = [p[0], p[1], p[2], 0, p[3], p[4], p[5]];
+    HOJE_LED["l" + k] = true;
+  });
+  // Casa de exemplo: casa hipotética pequena para o estudo de caso (igual à do programa em Python)
+  var EXEMPLO = [
+    { nome: "Sala de estar", amb: 1, comp: 3.5, larg: 3, pd: 2.6, qa: 2, tipoA: "inc60", tipoL: "b15", hd: 6, hp: 3, hi: 1, pres: 0, tmr: 0, dim: 0, cctrl: 0 },
+    { nome: "Sala de jantar", amb: 1, comp: 3, larg: 2.8, pd: 2.6, qa: 2, tipoA: "inc60", tipoL: "b15", hd: 3, hp: 2, hi: 1, pres: 0, tmr: 0, dim: 0, cctrl: 0 },
+    { nome: "Cozinha", amb: 2, comp: 3, larg: 2.5, pd: 2.6, qa: 1, tipoA: "ft40", tipoL: "t18", hd: 5, hp: 2, hi: 1, pres: 0, tmr: 0, dim: 0, cctrl: 0 },
+    { nome: "Área de serviço", amb: 6, comp: 2, larg: 1.5, pd: 2.6, qa: 1, tipoA: "inc60", tipoL: "b9", hd: 3, hp: 0.5, hi: 0.5, pres: 0, tmr: 1.5, dim: 0, cctrl: 60 },
+    { nome: "Quarto 1 – suíte", amb: 3, comp: 3.5, larg: 3, pd: 2.6, qa: 2, tipoA: "fc25", tipoL: "b15", hd: 4, hp: 2, hi: 1, pres: 0, tmr: 0, dim: 0, cctrl: 0 },
+    { nome: "Banheiro da suíte", amb: 4, comp: 2, larg: 1.5, pd: 2.5, qa: 1, tipoA: "inc60", tipoL: "b12", hd: 2, hp: 1, hi: 0.5, pres: 0, tmr: 0, dim: 0, cctrl: 0 },
+    { nome: "Quarto 2", amb: 3, comp: 3, larg: 2.8, pd: 2.6, qa: 1, tipoA: "lb9", tipoL: "b9", hd: 4, hp: 2, hi: 1, pres: 0, tmr: 0, dim: 0, cctrl: 0 },
+    { nome: "Banheiro social", amb: 4, comp: 2.2, larg: 1.5, pd: 2.5, qa: 1, tipoA: "inc60", tipoL: "b12", hd: 2, hp: 1, hi: 0.5, pres: 30, tmr: 0, dim: 0, cctrl: 90 }
+  ];
+  var NOVO = { nome: "Novo cômodo", amb: 3, comp: 3, larg: 3, pd: 2.7, qa: 1, tipoA: "inc60", tipoL: "b12", hd: 3, hp: 1, hi: 1, pres: 0, tmr: 0, dim: 0, cctrl: 0 };
+  var TABELA_FU = [
+    [0.60, 0.40], [0.80, 0.48], [1.00, 0.53], [1.25, 0.59], [1.50, 0.63],
+    [2.00, 0.69], [2.50, 0.73], [3.00, 0.76], [4.00, 0.80], [5.00, 0.82]
+  ];
+  var FATOR_EMISSAO = 0.0385;
+  var DIAS_UTEIS = 252 / 365;   // fração dos dias com ponta e intermediário (Tarifa Branca)
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var CHAVE = "retrofit-casa-v2";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var todos = function (sel, base) { return Array.prototype.slice.call((base || document).querySelectorAll(sel)); };
+
+  function fmt(v, c) {
+    return v.toLocaleString("pt-BR", { minimumFractionDigits: c, maximumFractionDigits: c });
+  }
+  function moeda(v) { return "R$ " + fmt(v, 2); }
+  function moedaS(v) { return (v <= -0.005 ? "−" : "") + moeda(Math.abs(v)); }
+  function pct(v) { return fmt(v, Number.isInteger(v) ? 0 : 1) + " %"; }
+  function paraCampo(v) { return String(v).replace(".", ","); }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
+  }
+  function lista(nomes) {
+    if (nomes.length <= 1) return nomes.join("");
+    return nomes.slice(0, -1).join(", ") + " e " + nomes[nomes.length - 1];
+  }
+
+  function indiceRecinto(c, l, h) { return (c * l) / (h * (c + l)); }
+  function fatorUtilizacao(k) {
+    var t = TABELA_FU;
+    if (k <= t[0][0]) return t[0][1];
+    if (k >= t[t.length - 1][0]) return t[t.length - 1][1];
+    for (var i = 0; i < t.length - 1; i++) {
+      var k1 = t[i][0], f1 = t[i][1], k2 = t[i + 1][0], f2 = t[i + 1][1];
+      if (k >= k1 && k <= k2) return f1 + (f2 - f1) * (k - k1) / (k2 - k1);
+    }
+  }
+  function iluminancia(q, fl, fu, fm, a) { return q * fl * fu * fm / a; }
+  function qtdNecessaria(em, a, fl, fu, fm) { return Math.ceil(em * a / (fl * fu * fm)); }
+
+  // Fluxo de caixa: ano 0 = investimento, anos 1..n = economia na conta de luz
+  function viabilidade(inv, econ, k, n) {
+    var saldo = -inv, saldoD = -inv, vpl = -inv, pbDesc = null;
+    var anos = [{ t: 0, f: -inv, fd: -inv, s: saldo, sd: saldoD }];
+    for (var t = 1; t <= n; t++) {
+      var fd = econ / Math.pow(1 + k, t);
+      if (pbDesc === null && econ > 0 && saldoD < 0 && saldoD + fd >= 0) pbDesc = t - 1 + (-saldoD) / fd;
+      saldo += econ; saldoD += fd; vpl += fd;
+      anos.push({ t: t, f: econ, fd: fd, s: saldo, sd: saldoD });
+    }
+    if (inv === 0 && econ > 0) pbDesc = 0;
+    return { anos: anos, vpl: vpl, pbDesc: pbDesc, tir: tir(inv, econ, n) };
+  }
+
+  // TIR: taxa que zera o VPL (busca por bisseção)
+  function tir(inv, econ, n) {
+    if (inv <= 0 || econ <= 0 || econ * n <= inv) return null;
+    var f = function (r) { return -inv + econ * (1 - Math.pow(1 + r, -n)) / r; };
+    var lo = 1e-9, hi = 1;
+    while (f(hi) > 0 && hi < 1e4) hi *= 2;
+    for (var i = 0; i < 200; i++) {
+      var m = (lo + hi) / 2;
+      if (f(m) > 0) lo = m; else hi = m;
+    }
+    return (lo + hi) / 2;
+  }
+
+  // ---------------------------------------------------------------------
+  // Cartões de cômodo
+  // ---------------------------------------------------------------------
+  var roomsBox = $("rooms");
+  var uid = 0;
+
+  function opcoes(obj) {
+    var h = "";
+    for (var k in obj) h += '<option value="' + k + '">' + esc(obj[k][0]) + "</option>";
+    return h + '<option value="x">Outra (informar os números)</option>';
+  }
+  var OPC_AMB = AMBIENTES.map(function (a, i) {
+    return '<option value="' + (i + 1) + '">' + esc(a[0]) + " (" + a[1] + " lux)</option>";
+  }).join("") + '<option value="0">Outro uso (informar manualmente)</option>';
+  var OPC_LED = opcoes(LAMP_LED);
+  var OPC_HOJE = (function () {
+    var comum = "", led = "";
+    for (var k in LAMP_HOJE) {
+      var o = '<option value="' + k + '">' + esc(LAMP_HOJE[k][0]) + "</option>";
+      if (HOJE_LED[k]) led += o; else comum += o;
+    }
+    return '<optgroup label="Lâmpadas comuns">' + comum + '</optgroup><optgroup label="Já é LED">' + led +
+      '</optgroup><option value="x">Outra (informar os números)</option>';
+  })();
+
+  function campo(id, k, rotulo, ajuda, cls, extra) {
+    return '<div class="field' + (cls ? " " + cls : "") + '"' + (extra || "") + '><label for="' + id + k + '">' + rotulo + "</label>" +
+      '<input type="text" id="' + id + k + '" data-k="' + k + '" inputmode="decimal">' +
+      (ajuda ? '<small class="ajuda">' + ajuda + "</small>" : "") + "</div>";
+  }
+
+  function criarComodo(d, aberto) {
+    var id = "c" + (++uid) + "_";
+    var el = document.createElement("details");
+    el.className = "room";
+    el.setAttribute("data-room", "");
+    el.open = !!aberto;
+    el.innerHTML =
+      '<summary><span class="rn"></span><span class="rt"></span><span class="rs"></span></summary>' +
+      '<div class="room-body">' +
+        '<div class="field full"><label for="' + id + 'nome">Nome do cômodo</label><input type="text" id="' + id + 'nome" data-k="nome"></div>' +
+        '<div class="field full"><label for="' + id + 'amb">Para que o cômodo é usado?</label><select id="' + id + 'amb" data-k="amb">' + OPC_AMB + "</select></div>" +
+        campo(id, "em_c", "Luz recomendada (lux)", "Valor de referência para esse uso.", "", " data-custom hidden") +
+        campo(id, "ra_c", "Fidelidade de cor mínima (IRC)", "Use 80 se não souber.", "", " data-custom hidden") +
+        campo(id, "ugr_c", "Ofuscamento máximo (UGR)", "0 = não se aplica (casas).", "full", " data-custom hidden") +
+        '<div class="sep">Tamanho</div>' +
+        campo(id, "comp", "Comprimento (m)") +
+        campo(id, "larg", "Largura (m)") +
+        campo(id, "pd", "Altura do chão até o teto (m)", "Em casas, cerca de 2,5 a 2,8 m.", "full") +
+        '<div class="sep">Lâmpadas de hoje</div>' +
+        campo(id, "qa", "Quantas lâmpadas tem hoje?", "Conte lâmpadas, não luminárias: uma calha pode ter 2 tubos.", "full") +
+        '<div class="field full"><label for="' + id + 'tipoA">Que lâmpada é?</label><select id="' + id + 'tipoA" data-k="tipoA">' + OPC_HOJE + "</select>" +
+          '<small class="ajuda" data-led-aviso hidden>Já é LED: estas lâmpadas ficam. Só entram LEDs novos se faltar luz.</small></div>' +
+        '<div class="field full" data-led-outra hidden><label for="' + id + 'led">Essa lâmpada já é LED?</label><select id="' + id + 'led" data-k="led">' +
+          '<option value="0">Não</option><option value="1">Sim</option></select></div>' +
+        '<details class="mini-det"><summary>Números da lâmpada de hoje</summary><div class="adv-grid">' +
+          campo(id, "pa", "Potência (W)", "O número com “W”.") +
+          campo(id, "fa", "Luz (lúmens)", "O número com “lm”.") +
+          campo(id, "reat", "Gasto do reator (W)", "Só em tubo fluorescente. Sem reator = 0.") +
+          campo(id, "vidaA", "Quanto dura (horas)") +
+          campo(id, "rep", "Preço para repor (R$)", "", "full") +
+        "</div></details>" +
+        '<div class="sep" data-led-sep>LED novo</div>' +
+        '<div class="field full"><label for="' + id + 'tipoL" data-led-rot>Qual LED vai entrar?</label><select id="' + id + 'tipoL" data-k="tipoL">' + OPC_LED + "</select></div>" +
+        '<details class="mini-det"><summary>Números do LED</summary><div class="adv-grid">' +
+          campo(id, "pl", "Potência (W)") +
+          campo(id, "fl", "Luz (lúmens)") +
+          campo(id, "vidaL", "Quanto dura (horas)") +
+          campo(id, "preco", "Preço de cada LED (R$)") +
+        "</div></details>" +
+        '<div class="sep">Uso</div>' +
+        campo(id, "hd", "Horas acesas por dia", "Some todos os períodos do dia.", "full") +
+        campo(id, "hp", "Dessas, horas na ponta", "Em geral das 18h às 21h.", "", " data-th hidden") +
+        campo(id, "hi", "Horas no intermediário", "1 h antes e 1 h depois da ponta.", "", " data-th hidden") +
+        '<details class="mini-det" data-ctrl><summary>Sensores neste cômodo: <span data-ctrl-res></span></summary><div class="adv-grid">' +
+          campo(id, "pres", "Sensor de presença: tempo com a luz acesa e o cômodo vazio (%)", "Banheiro, corredor e garagem: 30 a 50 %. 0 = sem sensor.", "full") +
+          campo(id, "tmr", "Temporizador: horas por dia de luz esquecida acesa", "Comum em área externa. 0 = sem temporizador.", "full") +
+          campo(id, "dim", "Dimmer: quanto a luz fica mais fraca, em média (%)", "Sala e quarto: 15 a 30 %. 0 = sem dimmer.", "full") +
+          campo(id, "cctrl", "Custo dos sensores deste cômodo, com instalação (R$)", "Sensor de presença ≈ R$ 60 a 120; dimmer ≈ R$ 80 a 150.", "full") +
+        "</div></details>" +
+        '<p class="hint" data-out></p>' +
+        '<div class="room-btns"><button type="button" data-act="dup">Duplicar</button><button type="button" data-act="del">Remover</button></div>' +
+      "</div>";
+    preencher(el, d);
+    return el;
+  }
+
+  function campoDe(el, k) { return el.querySelector('[data-k="' + k + '"]'); }
+
+  function preencher(el, d) {
+    campoDe(el, "nome").value = d.nome;
+    campoDe(el, "amb").value = String(d.amb);
+    ["em_c", "ra_c", "ugr_c"].forEach(function (k, i) { campoDe(el, k).value = d[k] != null ? d[k] : ["150", "80", "0"][i]; });
+    ["comp", "larg", "pd", "qa", "hd", "hp", "hi", "pres", "tmr", "dim", "cctrl"].forEach(function (k) { campoDe(el, k).value = paraCampo(d[k]); });
+    campoDe(el, "tipoA").value = d.tipoA;
+    campoDe(el, "tipoL").value = d.tipoL;
+    campoDe(el, "led").value = d.led === true || d.led === "1" ? "1" : "0";
+    if (d.tipoA === "x" && d.pa != null) ["pa", "fa", "reat", "vidaA", "rep"].forEach(function (k) { campoDe(el, k).value = paraCampo(d[k]); });
+    else aplicarTipo(el, "A");
+    if (d.tipoL === "x" && d.pl != null) ["pl", "fl", "vidaL", "preco"].forEach(function (k) { campoDe(el, k).value = paraCampo(d[k]); });
+    else aplicarTipo(el, "L");
+  }
+
+  var CAMPOS_A = ["pa", "fa", "reat", "vidaA", "rep"], CAMPOS_L = ["pl", "fl", "vidaL", "preco"];
+  function aplicarTipo(el, qual) {
+    var tab = qual === "A" ? LAMP_HOJE : LAMP_LED, campos = qual === "A" ? CAMPOS_A : CAMPOS_L;
+    var p = tab[campoDe(el, "tipo" + qual).value];
+    if (!p) return;
+    campos.forEach(function (k, i) { campoDe(el, k).value = paraCampo(p[i + 1]); });
+  }
+  // Se o usuário mudar um número da lâmpada, o tipo passa a ser "Outra"
+  function conferirTipo(el, qual) {
+    var tab = qual === "A" ? LAMP_HOJE : LAMP_LED, campos = qual === "A" ? CAMPOS_A : CAMPOS_L;
+    var sel = campoDe(el, "tipo" + qual), p = tab[sel.value];
+    if (!p) return;
+    var igual = campos.every(function (k, i) { return Number(campoDe(el, k).value.trim().replace(",", ".")) === p[i + 1]; });
+    if (!igual) sel.value = "x";
+  }
+
+  function dadosDoCartao(el) {
+    var d = {};
+    todos("[data-k]", el).forEach(function (c) { d[c.getAttribute("data-k")] = c.value; });
+    return d;
+  }
+  function cartoes() { return todos("[data-room]", roomsBox); }
+
+  function numerar() {
+    var cs = cartoes();
+    cs.forEach(function (el, i) {
+      el.querySelector(".rn").textContent = (i + 1) + ".";
+      el.querySelector('[data-act="del"]').disabled = cs.length === 1;
+    });
+  }
+
+  function montarCasa(lista, abrirPrimeiro) {
+    roomsBox.innerHTML = "";
+    lista.forEach(function (d, i) { roomsBox.appendChild(criarComodo(d, abrirPrimeiro && i === 0)); });
+    numerar();
+  }
+
+  // ---------------------------------------------------------------------
+  // Leitura e cálculo
+  // ---------------------------------------------------------------------
+  function ler(el, min, inteiro) {
+    var txt = el.value.trim().replace(",", ".");
+    var v = Number(txt);
+    var ok = txt !== "" && isFinite(v) && v >= min && (!inteiro || Number.isInteger(v));
+    el.setAttribute("aria-invalid", ok ? "false" : "true");
+    return ok ? v : null;
+  }
+  function limpar(el) { el.setAttribute("aria-invalid", "false"); }
+
+  function calcComodo(v, g) {
+    var r = v;
+    r.area = v.comp * v.larg; r.h = v.pd - g.plano; r.k = indiceRecinto(v.comp, v.larg, r.h);
+    r.fu = Math.round(fatorUtilizacao(r.k) * 100) / 100;
+    r.eA = iluminancia(v.qa, v.fa, r.fu, g.fm, r.area);
+    r.atA = r.eA >= v.em;
+    if (v.led) {
+      // Já é LED: as lâmpadas de hoje ficam e só entram LEDs novos se faltar luz
+      r.mant = v.qa;
+      var falta = v.em * r.area / (r.fu * g.fm) - v.qa * v.fa;
+      r.novos = r.atA ? 0 : Math.max(0, Math.ceil(falta / v.fl - 1e-9));
+    } else {
+      r.mant = 0;
+      r.novos = qtdNecessaria(v.em, r.area, v.fl, r.fu, g.fm);
+    }
+    r.ql = r.mant + r.novos;
+    r.eL = (r.mant * v.fa + r.novos * v.fl) * r.fu * g.fm / r.area;
+    r.atL = r.eL >= v.em;
+    // Potência de hoje inclui o reator; o LED não usa reator
+    r.potA = v.qa * (v.pa + v.reat); r.potL = r.mant * (v.pa + v.reat) + r.novos * v.pl;
+    // Sensores: cortam horas acesas (presença, temporizador) e potência (dimmer)
+    if (!g.ctrl) { r.pres = 0; r.tmr = 0; r.dim = 0; r.cctrl = 0; }
+    r.temCtrl = r.pres > 0 || r.tmr > 0 || r.dim > 0;
+    r.fH = (v.hd - r.tmr) / v.hd * (1 - r.pres / 100); r.fP = 1 - r.dim / 100;
+    r.potC = r.potL * r.fP;
+    r.horas = v.hd * g.da; r.horasC = r.horas * r.fH;
+    r.kwhA = r.potA * r.horas / 1000; r.kwhS = r.potL * r.horas / 1000; r.kwhL = r.potC * r.horasC / 1000;
+    // Custo de energia; na Tarifa Branca separa ponta, intermediário e fora de ponta (só dias úteis têm ponta)
+    function custo(pW, f) {
+      var tot = pW * r.horas * f / 1000;
+      if (!g.th) return { c: tot * g.tar };
+      var p = pW * v.hp * g.da * DIAS_UTEIS * f / 1000, i = pW * v.hi * g.da * DIAS_UTEIS * f / 1000, fo = tot - p - i;
+      return { p: p, i: i, f: fo, c: p * g.tp + i * g.ti + fo * g.tf };
+    }
+    var cA = custo(r.potA, 1), cS = custo(r.potL, 1), cL = custo(r.potC, r.fH);
+    r.custoA = cA.c; r.custoS = cS.c; r.custoL = cL.c;
+    if (g.th) { r.pA = cA.p; r.iA = cA.i; r.fA = cA.f; r.pL = cL.p; r.iL = cL.i; r.fL = cL.f; }
+    // Manutenção: lâmpadas que queimam por ano × (preço da lâmpada + mão de obra)
+    // (num cômodo que já é LED, as lâmpadas mantidas seguem com a vida e o preço de hoje)
+    var qH = r.mant / v.vidaA + r.novos / v.vidaL;
+    var cH = r.mant / v.vidaA * (v.rep + g.inst) + r.novos / v.vidaL * (v.preco + g.inst);
+    r.trocA = v.qa * r.horas / v.vidaA; r.trocS = qH * r.horas; r.trocL = qH * r.horasC;
+    r.manA = r.trocA * (v.rep + g.inst); r.manS = cH * r.horas; r.manL = cH * r.horasC;
+    r.econE = r.custoA - r.custoL; r.econM = r.manA - r.manL; r.econ = r.econE + r.econM;
+    r.econS = (r.custoA - r.custoS) + (r.manA - r.manS);
+    r.econCtrl = r.econ - r.econS;
+    r.invLed = r.novos * (v.preco + g.inst); r.inv = r.invLed + r.cctrl;
+    // Já é LED, tem luz suficiente e não tem sensor: não há nada a fazer
+    r.nada = v.led && r.novos === 0 && r.inv === 0 && !r.temCtrl;
+    r.payback = r.econ > 0 ? r.inv / r.econ : null;
+    r.pbCtrl = r.temCtrl && r.econCtrl > 0 && r.cctrl > 0 ? r.cctrl / r.econCtrl : null;
+    r.kwhE = r.kwhA - r.kwhL;
+    var vidas = (r.novos ? [v.vidaL] : []).concat(r.mant ? [v.vidaA] : []);
+    r.vida = Math.min.apply(null, vidas.length ? vidas : [v.vidaL]) / r.horasC; r.vidaAnosA = v.vidaA / r.horas;
+    // Troca direta: uma LED no lugar de cada lâmpada de hoje, sem sensores (num cômodo que já é LED, nada muda)
+    r.qD = v.qa;
+    if (v.led) {
+      r.eD = r.eA; r.potD = r.potA; r.kwhD = r.kwhA; r.custoD = r.custoA; r.manD = r.manA; r.invD = 0;
+    } else {
+      r.eD = v.qa * v.fl * r.fu * g.fm / r.area; r.potD = v.qa * v.pl; r.kwhD = r.potD * r.horas / 1000;
+      r.custoD = custo(r.potD, 1).c; r.manD = v.qa / v.vidaL * (v.preco + g.inst) * r.horas; r.invD = v.qa * (v.preco + g.inst);
+    }
+    r.atD = r.eD >= v.em;
+    r.econD = (r.custoA - r.custoD) + (r.manA - r.manD);
+    return r;
+  }
+
+  var SOMA = ["area", "qa", "ql", "novos","potA", "potL", "potC", "kwhA", "kwhS", "kwhL", "custoA", "custoS", "custoL",
+    "trocA", "trocS", "trocL", "manA", "manS", "manL", "econE", "econM", "econ", "econS", "econCtrl",
+    "invLed", "cctrl", "inv", "pA", "iA", "fA", "pL", "iL", "fL", "qD", "potD", "kwhD", "custoD", "manD", "invD", "econD"];
+
+  function totais(rs, g) {
+    var t = {};
+    SOMA.forEach(function (k) { t[k] = rs.reduce(function (s, r) { return s + (r[k] || 0); }, 0); });
+    t.N = rs.length;
+    t.nAtA = rs.filter(function (r) { return r.atA; }).length;
+    t.nAtL = rs.filter(function (r) { return r.atL; }).length;
+    t.nAtD = rs.filter(function (r) { return r.atD; }).length;
+    t.pbD = t.econD > 0 ? t.invD / t.econD : null;
+    t.kwhE = t.kwhA - t.kwhL;
+    t.reducao = t.kwhA ? t.kwhE / t.kwhA * 100 : 0;
+    t.reducaoS = t.kwhA ? (t.kwhA - t.kwhS) / t.kwhA * 100 : 0;
+    t.co2 = t.kwhE * FATOR_EMISSAO;
+    t.payback = t.econ > 0 ? t.inv / t.econ : null;
+    t.pbS = t.econS > 0 ? t.invLed / t.econS : null;
+    t.temCtrl = rs.some(function (r) { return r.temCtrl; });
+    t.pbCtrl = t.temCtrl && t.econCtrl > 0 && t.cctrl > 0 ? t.cctrl / t.econCtrl : null;
+    t.vf = viabilidade(t.inv, t.econ, g.tma / 100, g.n);
+    t.vidaMin = Math.min.apply(null, rs.map(function (r) { return r.vida; }));
+    t.vidaMax = Math.max.apply(null, rs.map(function (r) { return r.vida; }));
+    t.vidaAMin = Math.min.apply(null, rs.map(function (r) { return r.vidaAnosA; }));
+    t.vidaAMax = Math.max.apply(null, rs.map(function (r) { return r.vidaAnosA; }));
+    return t;
+  }
+
+  function calcular() {
+    var invalido = false;
+    function L(id, min, inteiro) { var v = ler($(id), min, inteiro); if (v === null) invalido = true; return v; }
+    function marcar(el) { el.setAttribute("aria-invalid", "true"); invalido = true; }
+
+    var g = { local: $("local").value.trim() };
+    $("cel-local").textContent = g.local || "—";
+    g.da = L("da", 1, true); if (g.da !== null && g.da > 366) marcar($("da"));
+    g.th = $("th").checked;
+    todos("[data-th]").forEach(function (el) { el.hidden = !g.th; });
+    $("tar").disabled = g.th;
+    if (g.th) { limpar($("tar")); g.tp = L("tp", 0.01); g.ti = L("ti", 0.01); g.tf = L("tf", 0.01); }
+    else { ["tp", "ti", "tf"].forEach(function (id) { limpar($(id)); }); g.tar = L("tar", 0.01); }
+    g.inst = L("inst", 0);
+    g.ctrl = $("ctrl").checked;
+    todos("[data-ctrl]").forEach(function (el) { el.hidden = !g.ctrl; });
+    g.tma = L("tma", 0); g.n = L("hz", 1, true); if (g.n !== null && g.n > 50) marcar($("hz"));
+    g.plano = L("plano", 0); if (g.plano !== null && g.plano > 1.5) marcar($("plano"));
+    g.fm = L("fm", 0.1); if (g.fm !== null && g.fm > 1) marcar($("fm"));
+    g.ral = L("ra_l", 1); g.ugrl = L("ugr_l", 0);
+    var globaisOk = !invalido;
+
+    var lidos = cartoes().map(function (el) {
+      var ruim = false;
+      function R(k, min, inteiro) { var v = ler(campoDe(el, k), min, inteiro); if (v === null) ruim = true; return v; }
+      function M(k) { campoDe(el, k).setAttribute("aria-invalid", "true"); ruim = true; }
+      var v = { el: el, nome: campoDe(el, "nome").value.trim() || "Cômodo sem nome" };
+      var op = Number(campoDe(el, "amb").value), custom = op === 0;
+      todos("[data-custom]", el).forEach(function (c) { c.hidden = !custom; });
+      if (custom) { v.uso = "uso informado"; v.em = R("em_c", 1); v.raN = R("ra_c", 1); v.ugrN = R("ugr_c", 0); }
+      else {
+        var a = AMBIENTES[op - 1]; v.uso = a[0]; v.em = a[1]; v.ugrN = a[2]; v.raN = a[3];
+        ["em_c", "ra_c", "ugr_c"].forEach(function (k) { limpar(campoDe(el, k)); });
+      }
+      v.comp = R("comp", 0.1); v.larg = R("larg", 0.1); v.pd = R("pd", 1);
+      if (v.pd !== null && g.plano !== null && v.pd <= g.plano + 0.3) M("pd");
+      v.qa = R("qa", 0, true); v.tipoA = campoDe(el, "tipoA").value;
+      v.led = v.tipoA === "x" ? campoDe(el, "led").value === "1" : !!HOJE_LED[v.tipoA];
+      el.querySelector("[data-led-outra]").hidden = v.tipoA !== "x";
+      el.querySelector("[data-led-aviso]").hidden = !v.led;
+      el.querySelector("[data-led-sep]").textContent = v.led ? "LED para acrescentar (só se faltar luz)" : "LED novo";
+      el.querySelector("[data-led-rot]").textContent = v.led ? "Se faltar luz, qual LED acrescentar?" : "Qual LED vai entrar?";
+      v.pa = R("pa", 0.1); v.fa = R("fa", 1); v.reat = R("reat", 0); v.vidaA = R("vidaA", 100); v.rep = R("rep", 0);
+      v.tipoL = campoDe(el, "tipoL").value;
+      v.pl = R("pl", 0.1); v.fl = R("fl", 1); v.vidaL = R("vidaL", 100); v.preco = R("preco", 0);
+      v.hd = R("hd", 0.1); if (v.hd !== null && v.hd > 24) M("hd");
+      v.hp = 0; v.hi = 0;
+      if (g.th) {
+        v.hp = R("hp", 0); v.hi = R("hi", 0);
+        if (v.hp !== null && v.hp > 3) M("hp");
+        if (v.hi !== null && v.hi > 2) M("hi");
+        if (v.hp !== null && v.hi !== null && v.hd !== null && v.hp + v.hi > v.hd) { M("hp"); M("hi"); }
+      } else { limpar(campoDe(el, "hp")); limpar(campoDe(el, "hi")); }
+      v.pres = 0; v.tmr = 0; v.dim = 0; v.cctrl = 0;
+      if (g.ctrl) {
+        v.pres = R("pres", 0); v.tmr = R("tmr", 0); v.dim = R("dim", 0); v.cctrl = R("cctrl", 0);
+        if (v.pres !== null && v.pres > 90) M("pres");
+        if (v.dim !== null && v.dim > 90) M("dim");
+        if (v.tmr !== null && v.hd !== null && v.tmr >= v.hd) M("tmr");
+      } else { ["pres", "tmr", "dim", "cctrl"].forEach(function (k) { limpar(campoDe(el, k)); }); }
+      var itens = [];
+      if (v.pres > 0) itens.push("presença"); if (v.tmr > 0) itens.push("temporizador"); if (v.dim > 0) itens.push("dimmer");
+      el.querySelector("[data-ctrl-res]").textContent = itens.length ? itens.join(", ") : "nenhum";
+      el.querySelector(".rt").textContent = v.nome;
+      el.classList.toggle("erro", ruim);
+      el.querySelector(".rs").textContent = ruim ? "corrigir" : fmt(v.comp * v.larg, 1) + " m²";
+      if (ruim) { invalido = true; el.querySelector("[data-out]").textContent = ""; }
+      v.ok = !ruim;
+      return v;
+    });
+
+    if (invalido || !globaisOk) {
+      // Abre o primeiro cômodo com erro para facilitar a correção
+      var primeiro = lidos.filter(function (v) { return !v.ok; })[0];
+      if (primeiro && !primeiro.el.open && document.activeElement && !primeiro.el.contains(document.activeElement)) primeiro.el.open = true;
+      return null;
+    }
+
+    var rs = lidos.map(function (v) { return calcComodo(v, g); });
+    rs.forEach(function (r) {
+      r.el.querySelector("[data-out]").innerHTML = "Área <strong>" + fmt(r.area, 2) + " m²</strong> · luz recomendada: <strong>" + fmt(r.em, 0) +
+        " lux</strong>. Hoje: <strong>" + fmt(r.eA, 0) + " lux</strong> (" + (r.atA ? "suficiente" : "falta luz") + "). " +
+        (!r.led ? "Com LED: <strong>" + r.ql + (r.ql === 1 ? " lâmpada" : " lâmpadas") + "</strong>, " + fmt(r.eL, 0) + " lux."
+          : r.novos === 0 ? "<strong>Já é LED: não precisa trocar.</strong>"
+          : "Já é LED: <strong>acrescentar " + r.novos + (r.novos === 1 ? " lâmpada" : " lâmpadas") + "</strong>, " + fmt(r.eL, 0) + " lux.");
+    });
+    var t = totais(rs, g);
+    $("vida-led").textContent = "Nesse uso, os LEDs duram de " + fmt(t.vidaMin, 1) + " a " + fmt(t.vidaMax, 1) + " anos, conforme o cômodo.";
+    return { g: g, rs: rs, t: t };
+  }
+
+  // ---------------------------------------------------------------------
+  // Desenho
+  // ---------------------------------------------------------------------
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(SVGNS, tag);
+    for (var a in attrs) e.setAttribute(a, attrs[a]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function txt(parent, x, y, s, extra) {
+    var t = el("text", Object.assign({ x: x, y: y, "text-anchor": "middle", fill: "var(--blue)",
+      "font-family": "var(--f-display)", "font-size": 11, "font-weight": 600 }, extra || {}), parent);
+    t.textContent = s;
+    return t;
+  }
+
+  function formato(r, cor) {
+    if (cor === "led") return LAMP_LED[r.tipoL] ? LAMP_LED[r.tipoL][5] : (r.fl >= 1800 ? "tubo" : "bulbo");
+    return LAMP_HOJE[r.tipoA] ? LAMP_HOJE[r.tipoA][6] : (r.reat > 0 ? "tubo" : "bulbo");
+  }
+
+  // Símbolos de planta: tubo (retângulo com eixo) ou bulbo (círculo); cinza = hoje, amarelo = LED
+  function simbolo(svg, cor, forma, cx, cy, cw, ch) {
+    var s = Math.min(cw, ch);
+    if (forma === "tubo") {
+      var len = Math.max(10, Math.min(cw * 0.62, 40)), th = Math.max(5, Math.min(ch * 0.16, 8));
+      if (cor === "led") el("rect", { x: cx - len / 2 - 4, y: cy - th / 2 - 4, width: len + 8, height: th + 8, rx: 4, fill: "var(--led-soft)" }, svg);
+      el("rect", { x: cx - len / 2, y: cy - th / 2, width: len, height: th,
+        fill: cor === "led" ? "var(--led)" : "var(--old-soft)", stroke: cor === "led" ? "var(--ink)" : "var(--old)", "stroke-width": cor === "led" ? 1 : 1.4 }, svg);
+      if (cor !== "led") el("line", { x1: cx - len / 2 + 3, x2: cx + len / 2 - 3, y1: cy, y2: cy, stroke: "var(--old)", "stroke-width": 1.4 }, svg);
+    } else if (cor === "led") {
+      el("circle", { cx: cx, cy: cy, r: Math.min(s * 0.42, 18), fill: "var(--led-soft)" }, svg);
+      el("circle", { cx: cx, cy: cy, r: Math.max(3, Math.min(s * 0.15, 6.5)), fill: "var(--led)", stroke: "var(--ink)", "stroke-width": 1 }, svg);
+    } else {
+      var rr = Math.max(3.5, Math.min(s * 0.17, 7)), d = rr * 0.7;
+      el("circle", { cx: cx, cy: cy, r: rr, fill: "var(--old-soft)", stroke: "var(--old)", "stroke-width": 1.4 }, svg);
+      el("line", { x1: cx - d, y1: cy - d, x2: cx + d, y2: cy + d, stroke: "var(--old)", "stroke-width": 1.2 }, svg);
+      el("line", { x1: cx - d, y1: cy + d, x2: cx + d, y2: cy - d, stroke: "var(--old)", "stroke-width": 1.2 }, svg);
+    }
+  }
+  function icone(cor, forma) {
+    var svg = el("svg", { viewBox: "0 0 30 14", "aria-hidden": "true" });
+    simbolo(svg, cor, forma, 15, 7, 30, 14);
+    return svg;
+  }
+
+  // Cota com traços oblíquos (padrão de desenho técnico)
+  function cota(svg, x1, y1, x2, y2, rotulo, vertical) {
+    el("line", { x1: x1, y1: y1, x2: x2, y2: y2, stroke: "var(--blue)", "stroke-width": 1 }, svg);
+    [[x1, y1], [x2, y2]].forEach(function (p) {
+      el("line", { x1: p[0] - 3, y1: p[1] + 3, x2: p[0] + 3, y2: p[1] - 3, stroke: "var(--blue)", "stroke-width": 1.3 }, svg);
+    });
+    if (vertical) {
+      var mx = x1 - 6, my = (y1 + y2) / 2;
+      txt(svg, mx, my, rotulo, { transform: "rotate(-90 " + mx + " " + my + ")" });
+    } else {
+      txt(svg, (x1 + x2) / 2, y1 - 5, rotulo);
+    }
+  }
+
+  function planta(r, n, cor, escala) {
+    var padL = 26, padT = 24, padR = 6, padB = 6;
+    var rw = Math.max(46, r.comp * escala), rh = Math.max(34, r.larg * escala);
+    var W = rw + padL + padR, H = rh + padT + padB;
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img",
+      "aria-label": r.nome + ": " + fmt(r.comp, 2) + " por " + fmt(r.larg, 2) + " m com " + n + " lâmpadas" });
+    var x0 = padL, y0 = padT;
+    el("rect", { x: x0, y: y0, width: rw, height: rh, fill: "var(--surface)", stroke: "var(--ink)", "stroke-width": 2.5 }, svg);
+    cota(svg, x0, y0 - 10, x0 + rw, y0 - 10, fmt(r.comp, 2) + " m");
+    cota(svg, x0 - 11, y0, x0 - 11, y0 + rh, fmt(r.larg, 2) + " m", true);
+    if (n > 0) {
+      var cols = Math.max(1, Math.round(Math.sqrt(n * r.comp / r.larg)));
+      cols = Math.min(cols, n);
+      var rows = Math.ceil(n / cols);
+      var cw = rw / cols, ch = rh / rows, idx = 0, forma = formato(r, cor);
+      for (var i = 0; i < rows; i++) {
+        var nesta = Math.min(cols, n - idx);
+        var off = (cols - nesta) * cw / 2;
+        for (var j = 0; j < nesta; j++, idx++) simbolo(svg, cor, forma, x0 + off + cw * (j + 0.5), y0 + ch * (i + 0.5), cw, ch);
+      }
+    }
+    return svg;
+  }
+
+  var vista = "led";
+  function desenharPlantas(res) {
+    var rs = res.rs, box = $("plans");
+    var maxC = Math.max.apply(null, rs.map(function (r) { return r.comp; }));
+    var maxL = Math.max.apply(null, rs.map(function (r) { return r.larg; }));
+    var escala = Math.min(250 / maxC, 190 / maxL);
+    box.innerHTML = "";
+    rs.forEach(function (r) {
+      var led = vista === "led", n = led ? r.ql : r.qa, lux = led ? r.eL : r.eA, ok = led ? r.atL : r.atA;
+      var fig = document.createElement("figure");
+      fig.className = "plan";
+      var pb = document.createElement("div");
+      pb.className = "pbox";
+      pb.appendChild(planta(r, n, led ? "led" : "old", escala));
+      fig.appendChild(pb);
+      var cap = document.createElement("figcaption");
+      var pot = led ? fmt(r.pl, 0) + " W" : (r.reat > 0 ? "(" + fmt(r.pa, 0) + " + " + fmt(r.reat, 0) + ") W" : fmt(r.pa, 0) + " W");
+      cap.innerHTML = '<span class="pn"></span><span class="pd">' + n + " × " + pot + " · " + fmt(lux, 0) + " lux " + pill(ok, "OK", "FALTA LUZ") + "</span>";
+      cap.firstChild.appendChild(icone(led ? "led" : "old", formato(r, led ? "led" : "old")));
+      cap.firstChild.appendChild(document.createTextNode(r.nome));
+      fig.appendChild(cap);
+      box.appendChild(fig);
+    });
+    var lg = $("legenda");
+    lg.innerHTML = "";
+    [["old", "bulbo", "Lâmpada de hoje (bulbo)"], ["old", "tubo", "Tubo fluorescente"], ["led", "bulbo", "LED bulbo ou plafon"], ["led", "tubo", "Tubo LED"]].forEach(function (x) {
+      var s = document.createElement("span");
+      s.appendChild(icone(x[0], x[1]));
+      s.appendChild(document.createTextNode(x[2]));
+      lg.appendChild(s);
+    });
+    $("v-hoje").setAttribute("aria-pressed", String(vista === "hoje"));
+    $("v-led").setAttribute("aria-pressed", String(vista === "led"));
+  }
+
+  function linhaBarra(nome, frac, cls, val, marca, marcaTxt) {
+    var w = Math.max(0, Math.min(100, frac * 100));
+    return '<div class="bar-row"><span class="name">' + nome + '</span><div class="track"><div class="fill ' + cls + '" style="width:' + w + '%"></div>' +
+      (marca != null ? '<div class="marker" style="left:' + (marca * 100) + '%">' + (marcaTxt ? "<span>" + marcaTxt + "</span>" : "") + "</div>" : "") +
+      '</div><span class="val">' + val + "</span></div>";
+  }
+
+  function passoBonito(range, alvo) {
+    var bruto = range / alvo;
+    var mag = Math.pow(10, Math.floor(Math.log10(bruto)));
+    var n = bruto / mag;
+    var p = n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10;
+    return p * mag;
+  }
+
+  function graficoPayback(t, g) {
+    var box = $("pb-chart");
+    box.innerHTML = "";
+    var W = 660, H = 280, ml = 80, mr = 20, mt = 18, mb = 40;
+    var anos = g.n;
+    var vMin = -t.inv, vMax = t.econ * anos - t.inv;
+    var lo = Math.min(vMin, vMax, 0), hi = Math.max(vMin, vMax, 0);
+    if (hi - lo < 1) { hi = lo + 1; }
+    var passo = passoBonito(hi - lo, 5);
+    lo = Math.floor(lo / passo) * passo; hi = Math.ceil(hi / passo) * passo;
+    var x = function (a) { return ml + (W - ml - mr) * a / anos; };
+    var y = function (v) { return mt + (H - mt - mb) * (hi - v) / (hi - lo); };
+
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Saldo acumulado da troca na casa ao longo de " + anos + " anos" }, box);
+
+    for (var v = lo; v <= hi + passo / 2; v += passo) {
+      el("line", { x1: ml, x2: W - mr, y1: y(v), y2: y(v), stroke: "var(--line)", "stroke-width": 1 }, svg);
+      var tt = el("text", { x: ml - 8, y: y(v) + 4, "text-anchor": "end" }, svg);
+      tt.textContent = (v < 0 ? "−" : "") + "R$ " + fmt(Math.abs(v), 0);
+    }
+    for (var a = 0; a <= anos; a += 1) {
+      el("line", { x1: x(a), x2: x(a), y1: H - mb, y2: H - mb + 4, stroke: "var(--muted)", "stroke-width": 1 }, svg);
+      if (anos > 12 && a % 5 !== 0 && a !== anos) continue;
+      var tx = el("text", { x: x(a), y: H - mb + 19, "text-anchor": "middle" }, svg);
+      tx.textContent = a;
+    }
+    var lbl = el("text", { x: W - mr, y: H - 3, "text-anchor": "end" }, svg);
+    lbl.textContent = "tempo (anos)";
+
+    var y0 = y(0);
+    var defs = el("defs", {}, svg);
+    var cpA = el("clipPath", { id: "acima" }, defs);
+    el("rect", { x: 0, y: 0, width: W, height: y0 }, cpA);
+    var cpB = el("clipPath", { id: "abaixo" }, defs);
+    el("rect", { x: 0, y: y0, width: W, height: H }, cpB);
+    var area = "M" + x(0) + "," + y0 + " L" + x(0) + "," + y(vMin) + " L" + x(anos) + "," + y(vMax) + " L" + x(anos) + "," + y0 + " Z";
+    el("path", { d: area, fill: "var(--good-soft)", "clip-path": "url(#acima)" }, svg);
+    el("path", { d: area, fill: "var(--bad-soft)", "clip-path": "url(#abaixo)" }, svg);
+    el("line", { x1: ml, x2: W - mr, y1: y0, y2: y0, stroke: "var(--ink)", "stroke-width": 1.3 }, svg);
+    el("polyline", { points: t.vf.anos.map(function (p) { return x(p.t) + "," + y(p.sd); }).join(" "),
+      fill: "none", stroke: "var(--muted)", "stroke-width": 2, "stroke-dasharray": "6 4" }, svg);
+    el("line", { x1: x(0), y1: y(vMin), x2: x(anos), y2: y(vMax), stroke: "var(--led)", "stroke-width": 3, "stroke-linecap": "round" }, svg);
+    el("circle", { cx: x(0), cy: y(vMin), r: 4.5, fill: "var(--led)" }, svg);
+    el("circle", { cx: x(anos), cy: y(vMax), r: 4.5, fill: "var(--led)" }, svg);
+
+    if (t.payback !== null && t.payback <= anos) {
+      var px = x(t.payback);
+      el("line", { x1: px, x2: px, y1: mt, y2: H - mb, stroke: "var(--blue)", "stroke-width": 1.2, "stroke-dasharray": "5 4" }, svg);
+      el("circle", { cx: px, cy: y0, r: 6, fill: "var(--surface)", stroke: "var(--blue)", "stroke-width": 2.2 }, svg);
+      var anchor = t.payback > anos * 0.7 ? "end" : "start";
+      var pt = el("text", { x: px + (anchor === "start" ? 9 : -9), y: mt + 13, "text-anchor": anchor }, svg);
+      pt.style.fill = "var(--blue)"; pt.style.fontWeight = 700;
+      pt.textContent = "Se paga em " + fmt(t.payback, 2) + " anos";
+    }
+    var fim = el("text", { x: x(anos) - 8, y: y(vMax) + (vMax >= 0 ? -10 : 20), "text-anchor": "end" }, svg);
+    fim.style.fill = "var(--ink)"; fim.style.fontWeight = 600;
+    fim.textContent = moedaS(vMax) + " em " + anos + " anos";
+  }
+
+  function pill(ok, txtOk, txtNo) {
+    return '<span class="pill ' + (ok ? "ok" : "no") + '">' + (ok ? (txtOk || "ATENDE") : (txtNo || "NÃO ATENDE")) + "</span>";
+  }
+  function tempoTxt(anos) {
+    var meses = Math.round(anos * 12);
+    if (anos < 1) return "cerca de " + meses + (meses === 1 ? " mês" : " meses");
+    return fmt(anos, 1) + " anos (cerca de " + meses + " meses)";
+  }
+  function pbTxt(v) { return v === null ? "—" : fmt(v, 2) + " anos"; }
+  function seta(a, b) { return a + ' <span class="seta">→</span> ' + b; }
+  function nomeLamp(tab, k, alt) { return tab[k] ? tab[k][0].charAt(0).toLowerCase() + tab[k][0].slice(1) : alt; }
+  function tempoCurto(anos) {
+    var meses = Math.round(anos * 12);
+    return meses < 24 ? meses + (meses === 1 ? " mês" : " meses") : fmt(anos, 1) + " anos";
+  }
+  function ordemPrioridade(rs) {
+    return rs.slice().sort(function (a, b) {
+      if (a.nada !== b.nada) return a.nada ? 1 : -1;
+      if (a.payback === null && b.payback === null) return b.econ - a.econ;
+      if (a.payback === null) return 1;
+      if (b.payback === null) return -1;
+      return a.payback - b.payback;
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Relatório em linguagem simples, montado a partir dos resultados
+  // ---------------------------------------------------------------------
+  function diagnostico(res) {
+    var g = res.g, rs = res.rs, t = res.t, vf = t.vf;
+    var atA = t.nAtA === t.N;
+    var faltam = rs.filter(function (r) { return !r.atA; });
+    var dif = t.ql - t.qa;
+    var difTxt = dif > 0 ? dif + " a mais que hoje" : dif < 0 ? (-dif) + " a menos que hoje" : "a mesma quantidade de hoje";
+
+    var v;
+    var problema = t.payback !== null && t.payback > 5
+      ? "o dinheiro investido demora " + tempoTxt(t.payback) + " para voltar"
+      : "em " + g.n + " anos a troca rende menos do que deixar o dinheiro aplicado a " + pct(g.tma) + " ao ano";
+    var todosNada = rs.every(function (r) { return r.nada; });
+    if (todosNada) {
+      v = ["ok", "Nada a trocar", "Todos os cômodos já têm lâmpadas LED e a luz recomendada. A iluminação da casa já está eficiente."];
+    } else if (t.payback === null && !atA) {
+      v = ["warn", "Trocar para ter luz suficiente", "Hoje falta luz em " + faltam.length + " de " + t.N + " cômodos. Para resolver é preciso pôr mais lâmpadas, e a conta não diminui" +
+        (t.econ < -0.005 ? " (sobe " + moeda(-t.econ) + " por ano)" : "") + ": a troca não se paga, ela serve para ter a luz recomendada."];
+    } else if (t.payback === null) {
+      v = ["no", "Não compensa trocar", "Com esses dados as lâmpadas LED não diminuem a conta de luz da casa, então o dinheiro da troca nunca volta."];
+    } else if (t.payback <= 5 && vf.vpl >= 0) {
+      v = ["ok", "Recomendado trocar para LED", (atA ? "Todos os cômodos já têm luz suficiente, mas a troca diminui a conta de luz" :
+        "A troca resolve a falta de luz em " + faltam.length + " de " + t.N + " cômodos e ainda diminui a conta de luz") + ". O dinheiro investido volta em " + tempoTxt(t.payback) + "."];
+    } else if (!atA) {
+      v = ["warn", "Trocar para ter luz suficiente", "Hoje falta luz em " + faltam.length + " de " + t.N + " cômodos e a troca resolve isso, mas " + problema + "."];
+    } else {
+      v = ["no", "Troca pouco vantajosa", "A casa já tem luz suficiente em todos os cômodos, e " + problema + "."];
+    }
+
+    var jaLed = rs.filter(function (r) { return r.led; }).map(function (r) { return esc(r.nome); });
+    var hoje = "A casa tem <strong>" + t.N + (t.N === 1 ? " cômodo" : " cômodos") + "</strong> e <strong>" + fmt(t.area, 1) + " m²</strong> iluminados. Hoje são " + t.qa +
+      " lâmpadas, que somam " + fmt(t.potA, 0) + " W" + (rs.some(function (r) { return r.reat > 0; }) ? " (contando o gasto dos reatores)" : "") + ". " +
+      (atA ? "Todos os cômodos já têm a luz recomendada."
+           : "Falta luz em <strong>" + faltam.length + " de " + t.N + " cômodos</strong>: " +
+             lista(faltam.map(function (r) { return esc(r.nome) + " (" + fmt(r.eA, 0) + " de " + fmt(r.em, 0) + " lux)"; })) +
+             ". Com pouca luz a vista cansa mais e fica difícil ler, cozinhar e fazer tarefas.") +
+      (jaLed.length === rs.length ? " Todos os cômodos já usam LED."
+        : jaLed.length ? " " + (jaLed.length === 1 ? "O cômodo " : "Os cômodos ") + lista(jaLed) + (jaLed.length === 1 ? " já usa" : " já usam") + " LED." : "") +
+      " Essas lâmpadas gastam " + fmt(t.kwhA, 0) + " kWh por ano, o que dá cerca de <strong>" + moeda(t.custoA) + "</strong> na conta de luz (" + moeda(t.custoA / 12) + " por mês). " +
+      "Por ano queimam cerca de " + fmt(t.trocA, 1) + " lâmpadas, e repor custa " + moeda(t.manA) + ".";
+
+    var proposta = todosNada ? "Nenhuma lâmpada precisa ser trocada. Em cada cômodo:" :
+      "Para ter a luz recomendada em todos os cômodos são necessárias <strong>" + t.ql + " lâmpadas LED</strong> (" + difTxt + "). " +
+      "Só com a troca, o gasto da casa " +
+      (t.reducaoS >= 0 ? "cai para " + fmt(t.kwhS, 0) + " kWh por ano (" + moeda(t.custoS) + "), uma economia de <strong>" + fmt(t.reducaoS, 1) + " %</strong>. "
+                       : "sobe para " + fmt(t.kwhS, 0) + " kWh por ano (" + moeda(t.custoS) + "), " + fmt(-t.reducaoS, 1) + " % a mais, porque haverá mais luz. ") +
+      (t.manS < t.manA ? "O LED dura mais, então a reposição de lâmpadas queimadas cai para " : "A reposição de lâmpadas queimadas fica em ") +
+      moeda(t.manS) + " por ano. Em cada cômodo:";
+    var faltaD = t.N - t.nAtD;
+    var direta = "Na troca direta (uma LED no lugar de cada lâmpada, sem mexer na quantidade) a casa gastaria " + fmt(t.kwhD, 0) +
+      " kWh por ano, com investimento de " + moeda(t.invD) + " e economia de " + moeda(t.econD) + " por ano" +
+      (t.pbD !== null ? ", que se paga em " + tempoTxt(t.pbD) : "") + ". " +
+      (faltaD > 0 ? (faltaD === t.N ? "Mas <strong>nenhum dos " + t.N + " cômodos teria a luz recomendada</strong>: "
+                                    : "Mas <strong>" + faltaD + " de " + t.N + " " + (faltaD === 1 ? "cômodo continuaria" : "cômodos continuariam") + " sem a luz recomendada</strong>: ") +
+        "gastar menos não basta, a luz também precisa ser suficiente. Por isso o estudo recomenda a solução otimizada."
+        : "Todos os cômodos teriam a luz recomendada, então a troca direta também serve.");
+    var porComodo = rs.map(function (r) {
+      var antes = r.qa + " × " + nomeLamp(LAMP_HOJE, r.tipoA, "lâmpada de " + fmt(r.pa, 0) + " W");
+      var novo = nomeLamp(LAMP_LED, r.tipoL, "LED de " + fmt(r.pl, 0) + " W");
+      var fim = r.econ > 0.005 ? "Economia de " + moeda(r.econ) + " por ano."
+              : r.econ < -0.005 ? "A conta deste cômodo sobe " + moeda(-r.econ) + " por ano, porque hoje falta luz e serão necessárias mais lâmpadas." : "";
+      var nome = "<strong>" + esc(r.nome) + "</strong>: ";
+      if (r.led && r.novos === 0)
+        return nome + "já é LED (" + antes + ") e tem " + fmt(r.eA, 0) + " lux, o suficiente. Não precisa trocar" + (r.temCtrl ? ". Só entram os sensores. " + fim : ".");
+      if (r.led)
+        return nome + "já é LED; " + (r.qa === 1 ? "fica a lâmpada de hoje" : "ficam as " + r.qa + " lâmpadas de hoje") + " e " +
+          (r.novos === 1 ? "entra" : "entram") + " mais " + r.novos + " × " + novo + "; a luz vai de " + fmt(r.eA, 0) + " para " + fmt(r.eL, 0) + " lux. " + fim;
+      return nome + antes + " → " + r.ql + " × " + novo + "; a luz vai de " + fmt(r.eA, 0) + " para " + fmt(r.eL, 0) + " lux. " + fim;
+    });
+
+    var comCtrl = rs.filter(function (r) { return r.temCtrl; });
+    var controles = !g.ctrl
+      ? "Não foram incluídos. Sensores de presença, temporizadores e dimmers apagam ou diminuem a luz quando ela não é necessária. Marque a opção no item 4 para simular."
+      : !comCtrl.length || t.econCtrl <= 0
+        ? "Com os valores informados, os sensores não trazem economia além da troca para LED."
+        : "Foram incluídos sensores em " + lista(comCtrl.map(function (r) {
+            var it = [];
+            if (r.pres > 0) it.push("presença"); if (r.tmr > 0) it.push("temporizador"); if (r.dim > 0) it.push("dimmer");
+            return esc(r.nome) + " (" + it.join(", ") + ")";
+          })) + ". Com eles o gasto da casa cai de " + fmt(t.kwhS, 0) + " para <strong>" + fmt(t.kwhL, 0) + " kWh por ano</strong>, " +
+          "mais <strong>" + moeda(t.econCtrl) + " de economia por ano</strong>" + (t.cctrl > 0 ? ". Os sensores custam " + moeda(t.cctrl) +
+          (t.pbCtrl !== null ? " e se pagam sozinhos em " + tempoTxt(t.pbCtrl) : "") : "") +
+          (t.reducao >= 0 ? ". No total, a economia de energia chega a <strong>" + fmt(t.reducao, 1) + " %</strong>."
+                          : ". No total, o gasto de energia fica " + fmt(-t.reducao, 1) + " % maior que hoje, porque haverá mais luz.");
+
+    var dinheiro = "Comprar e instalar os LEDs custa <strong>" + moeda(t.invLed) + "</strong>" +
+      (t.cctrl > 0 ? ", mais " + moeda(t.cctrl) + " dos sensores: total de <strong>" + moeda(t.inv) + "</strong>" : "") + ". " +
+      (t.econ > 0
+        ? "Por ano, a conta de luz fica " + moeda(Math.abs(t.econE)) + (t.econE >= 0 ? " mais barata" : " mais cara") +
+          " e o gasto com lâmpadas queimadas " + (t.econM >= 0 ? "cai " : "sobe ") + moeda(Math.abs(t.econM)) +
+          ": economia total de <strong>" + moeda(t.econ) + " por ano</strong> (" + moeda(t.econ / 12) + " por mês). " +
+          (g.th ? "Com a Tarifa Branca, essa economia vem da ponta (" + moeda((t.pA - t.pL) * g.tp) + "), do intermediário (" +
+            moeda((t.iA - t.iL) * g.ti) + ") e do resto do dia (" + moeda((t.fA - t.fL) * g.tf) + "). " : "") +
+          "Com essa economia, o valor investido volta em " + tempoTxt(t.payback) + ". Em " + g.n + " anos, já descontada a compra, " +
+          (t.econ * g.n >= t.inv ? "sobram <strong>" + moeda(t.econ * g.n - t.inv) + "</strong>. " : "ainda faltam <strong>" + moeda(t.inv - t.econ * g.n) + "</strong>. ") +
+          "A troca também evita " + fmt(t.co2, 1) + " kg de CO₂ por ano."
+        : "Como a conta de luz e a manutenção não ficam mais baratas, não há economia para pagar esse valor.");
+    if (t.inv === 0 && t.econ <= 0) dinheiro = "Não há nada a comprar: a iluminação da casa fica como está.";
+
+    var aplicado = t.payback === null ? (t.inv === 0 ? "Não há investimento para comparar." : "Sem economia na conta de luz, a troca não tem retorno.") :
+      "Se o dinheiro ficasse aplicado, renderia " + pct(g.tma) + " ao ano. Levando isso em conta, o payback descontado " +
+      (vf.pbDesc !== null ? "é de " + tempoTxt(vf.pbDesc) : "passa de " + g.n + " anos") + ". " +
+      "O VPL em " + g.n + " anos é <strong>" + moedaS(vf.vpl) + "</strong>: " +
+      (vf.vpl >= 0 ? "positivo, então a troca rende mais do que a aplicação." : "negativo, então a aplicação renderia mais do que a troca.") +
+      (vf.tir !== null ? " A TIR, que é quanto a troca rende por ano, é de " + fmt(vf.tir * 100, 1) + " %, " +
+        (vf.tir * 100 >= g.tma ? "acima" : "abaixo") + " dos " + pct(g.tma) + " da aplicação." : "");
+
+    var ordem = ordemPrioridade(rs);
+    var rapidos = ordem.filter(function (r) { return r.payback !== null; }).slice(0, 3);
+    var semRet = rs.filter(function (r) { return r.payback === null && !r.nada; });
+    var nada = rs.filter(function (r) { return r.nada; }).map(function (r) { return esc(r.nome); });
+    var comecar = (rapidos.length ? "Os cômodos em que a troca se paga mais rápido são " +
+        lista(rapidos.map(function (r) { return "<strong>" + esc(r.nome) + "</strong> (" + tempoCurto(r.payback) + ")"; })) +
+        ". Se não der para trocar tudo de uma vez, comece por eles." : semRet.length ? "Nenhum cômodo tem retorno com esses dados." : "") +
+      (semRet.length ? " Em " + lista(semRet.map(function (r) { return esc(r.nome); })) +
+        " a troca não diminui a conta" + (semRet.some(function (r) { return !r.atA; }) ? ": ali ela serve para ter a luz recomendada." : ".") : "") +
+      (nada.length ? " " + lista(nada) + " já " + (nada.length === 1 ? "tem" : "têm") + " LED e luz suficiente: nada a trocar." : "");
+
+    var aten = [];
+    var mais = rs.filter(function (r) { return r.ql > r.qa; });
+    if (mais.length) aten.push("Precisam de mais pontos de luz: " + lista(mais.map(function (r) { return esc(r.nome) + " (+" + (r.ql - r.qa) + ")"; })) + ". Confira com um eletricista se a instalação comporta.");
+    var sobra = rs.filter(function (r) { return r.novos > 0 && r.eL > r.em * 1.3; });
+    if (sobra.length) aten.push("A luz com LED fica bem acima do mínimo em " + lista(sobra.map(function (r) { return esc(r.nome); })) + ". Dá para usar lâmpadas mais fracas e economizar ainda mais.");
+    var fracos = rs.filter(function (r) { return r.novos > 0 && r.fl / r.pl < 90; });
+    if (fracos.length) aten.push("O LED escolhido para " + lista(fracos.map(function (r) { return esc(r.nome); })) + " produz menos de 90 lúmens por watt. Modelos comuns hoje passam de 100 lm/W: um LED mais eficiente diminui a quantidade e o gasto.");
+    if (t.payback !== null && t.payback > 5) aten.push("O retorno é demorado. Vale pesquisar LEDs mais baratos ou mais eficientes, ou trocar primeiro só os cômodos que se pagam rápido.");
+    var raMax = Math.max.apply(null, rs.map(function (r) { return r.raN; }));
+    if (g.ral < raMax) aten.push("Os LEDs mostram as cores pior do que o recomendado (IRC " + fmt(g.ral, 0) + ", mínimo " + fmt(raMax, 0) + "). Escolha modelos com IRC maior.");
+    var comUgr = rs.filter(function (r) { return r.ugrN > 0; });
+    comUgr.forEach(function (r) {
+      if (g.ugrl === 0) aten.push("No " + esc(r.nome) + ", o ofuscamento (UGR) da luminária não foi informado. Confira no catálogo se ele é no máximo " + fmt(r.ugrN, 0) + ", para a luz não incomodar a vista.");
+      else if (g.ugrl > r.ugrN) aten.push("No " + esc(r.nome) + ", a luminária ofusca mais do que a norma permite (UGR " + fmt(g.ugrl, 0) + ", máximo " + fmt(r.ugrN, 0) + "). Prefira uma com difusor.");
+    });
+    var curtos = rs.filter(function (r) { return g.n > r.vida && !r.nada; });
+    if (curtos.length) aten.push("O prazo da análise (" + g.n + " anos) passa da vida do LED em " + lista(curtos.map(function (r) { return esc(r.nome) + " (" + fmt(r.vida, 1) + " anos)"; })) + ". A conta já inclui, em média por ano, o custo de repor os LEDs que queimarem.");
+    var dims = rs.filter(function (r) { return r.dim > 0; });
+    if (dims.length) aten.push("Para usar dimmer em " + lista(dims.map(function (r) { return esc(r.nome); })) + ", o LED precisa ser dimerizável (vem escrito na embalagem). Confira antes de comprar.");
+    var pres = rs.filter(function (r) { return r.pres > 0; });
+    if (pres.length) aten.push("Use sensor de presença com tempo de espera de alguns minutos, para a luz não apagar com a pessoa parada. Em quartos e na sala ele costuma incomodar; funciona melhor em banheiro, corredor e garagem.");
+    var fluo = rs.filter(function (r) { return /^f/.test(r.tipoA) || r.reat > 0; });
+    if (fluo.length) aten.push("As lâmpadas fluorescentes retiradas (" + lista(fluo.map(function (r) { return esc(r.nome); })) + ") têm mercúrio: não jogue no lixo comum. Entregue num ponto de coleta (logística reversa).");
+    aten.push("Estes números são uma estimativa pelo Método dos Lúmens. Depois da troca, meça a luz com um luxímetro (há aplicativos de celular que dão uma ideia) para confirmar.");
+
+    return (g.local ? '<p class="local">Casa analisada: <strong>' + esc(g.local) + "</strong></p>" : "") +
+      '<div class="veredito ' + v[0] + '"><div><strong>' + v[1] + "</strong><p>" + v[2] + "</p></div></div>" +
+      "<h3>Como está hoje</h3><p>" + hoje + "</p>" +
+      "<h3>O que muda com LED</h3><p>" + proposta + "</p><ul>" + porComodo.map(function (a) { return "<li>" + a + "</li>"; }).join("") + "</ul>" +
+      (t.invD > 0 ? "<h3>E se trocar só lâmpada por lâmpada?</h3><p>" + direta + "</p>" : "") +
+      "<h3>Sensores e controles</h3><p>" + controles + "</p>" +
+      "<h3>Custo e retorno</h3><p>" + dinheiro + "</p>" +
+      "<h3>Vale mais que deixar o dinheiro aplicado?</h3><p>" + aplicado + "</p>" +
+      "<h3>Por onde começar</h3><p>" + comecar + "</p>" +
+      "<h3>Pontos de atenção</h3><ul>" + aten.map(function (a) { return "<li>" + a + "</li>"; }).join("") + "</ul>";
+  }
+
+  // ---------------------------------------------------------------------
+  // Tela
+  // ---------------------------------------------------------------------
+  var ultimo = null;
+  function render() {
+    var res = calcular();
+    salvar();
+    $("err").hidden = res !== null;
+    if (document.querySelector(".avancado input[aria-invalid=true]")) document.querySelector(".avancado").open = true;
+    if (!res) return;
+    ultimo = res;
+    var g = res.g, rs = res.rs, t = res.t, vf = t.vf;
+
+    var parecer = t.payback === null ? null :
+      t.payback <= 2 ? ["ok", "Excelente"] : t.payback <= 5 ? ["ok", "Viável"] : ["no", "Pouco atrativo"];
+    $("kpis").innerHTML =
+      '<div><div class="k-label">Cômodos com luz suficiente hoje</div><div class="k-value">' + t.nAtA + "<small>de " + t.N + '</small></div><div class="k-note">' +
+        pill(t.nAtL === t.N, "COM LED: TODOS", "COM LED: " + t.nAtL + " DE " + t.N) + "</div></div>" +
+      '<div><div class="k-label">Lâmpadas LED na casa</div><div class="k-value">' + t.ql + '</div><div class="k-note">hoje: ' + t.qa + " lâmpadas</div></div>" +
+      '<div><div class="k-label">' + (t.reducao >= 0 ? "Energia economizada" : "Energia a mais (mais luz)") + '</div><div class="k-value">' + fmt(Math.abs(t.reducao), 1) + '<small>%</small></div><div class="k-note">' +
+        (t.econ >= 0 ? moeda(t.econ) + " por ano a menos" : moeda(-t.econ) + " por ano a mais") + " (luz + reposição)</div></div>" +
+      '<div><div class="k-label">A troca se paga em</div><div class="k-value">' + (t.payback === null ? "—" : fmt(t.payback, 2) + "<small>anos</small>") +
+      '</div><div class="k-note">' + (parecer ? '<span class="pill ' + parecer[0] + '">' + parecer[1].toUpperCase() + "</span>" :
+        t.inv === 0 && t.econ <= 0 ? '<span class="pill ok">NADA A TROCAR</span>' : '<span class="pill no">SEM RETORNO</span>') +
+      "investimento " + moeda(t.inv) + "</div></div>";
+
+    desenharPlantas(res);
+
+    // Luz em % da luz recomendada, por cômodo
+    var maxP = Math.max(1.2, Math.max.apply(null, rs.map(function (r) { return Math.max(r.eA, r.eL) / r.em; })) * 1.08);
+    $("bars-lux").innerHTML = rs.map(function (r, i) {
+      return '<div class="grp"><div class="grp-name">' + esc(r.nome) + "<span>mínimo " + fmt(r.em, 0) + " lux</span></div>" +
+        linhaBarra("Hoje", r.eA / r.em / maxP, "old", fmt(r.eA, 0) + " lux", 1 / maxP, i === 0 ? "mínimo" : "") +
+        linhaBarra("LED", r.eL / r.em / maxP, "led", fmt(r.eL, 0) + " lux", 1 / maxP) + "</div>";
+    }).join("");
+    $("bars-lux").style.paddingTop = "14px";
+
+    // Energia por cômodo e total
+    var maxK = Math.max.apply(null, rs.map(function (r) { return Math.max(r.kwhA, r.kwhL); })) * 1.05 || 1;
+    var rotLed = g.ctrl && t.temCtrl ? "LED+sens." : "LED";
+    $("bars-kwh").innerHTML = rs.map(function (r) {
+      return '<div class="grp"><div class="grp-name">' + esc(r.nome) + "<span>" + (r.kwhE >= 0 ? "−" : "+") + fmt(Math.abs(r.kwhE), 0) + " kWh</span></div>" +
+        linhaBarra("Hoje", r.kwhA / maxK, "old", fmt(r.kwhA, 0) + " kWh") +
+        linhaBarra(r.temCtrl ? "LED+sens." : "LED", r.kwhL / maxK, r.temCtrl ? "ctrl" : "led", fmt(r.kwhL, 0) + " kWh") + "</div>";
+    }).join("") +
+      '<div class="grp bar-total"><div class="grp-name">Casa toda<span>' + (t.kwhE >= 0 ? "−" : "+") + fmt(Math.abs(t.kwhE), 0) + " kWh</span></div>" +
+        linhaBarra("Hoje", 1, "old", fmt(t.kwhA, 0) + " kWh") +
+        linhaBarra(rotLed, t.kwhA ? t.kwhL / t.kwhA : 0, t.temCtrl ? "ctrl" : "led", fmt(t.kwhL, 0) + " kWh") + "</div>";
+    $("cons-sub").textContent = "Por cômodo, em kWh por ano" + (rs.some(function (r) { return r.reat > 0; }) ? ", contando o gasto do reator" : "") +
+      ". A casa toda economiza " + fmt(t.kwhE, 0) + " kWh por ano e evita " + fmt(t.co2, 1) + " kg de CO₂." +
+      (t.temCtrl ? " Verde: cômodos com sensores." : "");
+
+    // Tabela cômodo por cômodo
+    $("tbl-c-sub").textContent = g.ctrl && t.temCtrl ? " (com os sensores, onde houver)" : "";
+    $("tbl-comodos").innerHTML =
+      "<thead><tr><th>Cômodo</th><th>Área (m²)</th><th>Mínimo (lux)</th><th>Luz (lux)</th><th>Lâmpadas</th><th>Potência (W)</th><th>Energia (kWh/ano)</th><th>Conta (R$/ano)</th><th>Economia (R$/ano)</th></tr></thead><tbody>" +
+      rs.map(function (r) {
+        return "<tr><td>" + esc(r.nome) + "</td><td>" + fmt(r.area, 1) + "</td><td>" + fmt(r.em, 0) + "</td><td>" +
+          seta(fmt(r.eA, 0), fmt(r.eL, 0)) + " " + pill(r.atL, "OK", "FALTA") + "</td><td>" + seta(r.qa, r.ql) + "</td><td>" + seta(fmt(r.potA, 0), fmt(r.potL, 0)) +
+          "</td><td>" + seta(fmt(r.kwhA, 0), fmt(r.kwhL, 0)) + "</td><td>" + seta(fmt(r.custoA, 0), fmt(r.custoL, 0)) + "</td><td>" + moedaS(r.econ) + "</td></tr>";
+      }).join("") +
+      '<tr class="tot"><td>Casa toda</td><td>' + fmt(t.area, 1) + "</td><td>—</td><td>" + t.nAtA + " → " + t.nAtL + " de " + t.N + " OK</td><td>" + seta(t.qa, t.ql) +
+        "</td><td>" + seta(fmt(t.potA, 0), fmt(t.potL, 0)) + "</td><td>" + seta(fmt(t.kwhA, 0), fmt(t.kwhL, 0)) + "</td><td>" + seta(fmt(t.custoA, 0), fmt(t.custoL, 0)) +
+        "</td><td>" + moedaS(t.econ) + "</td></tr></tbody>";
+
+    // Economia por cômodo (maior para menor), com zero no meio quando algum cômodo gasta mais
+    var ecoOrd = rs.slice().sort(function (a, b) { return b.econ - a.econ; });
+    var ecoMax = Math.max(0, Math.max.apply(null, rs.map(function (r) { return r.econ; })));
+    var ecoMin = Math.min(0, Math.min.apply(null, rs.map(function (r) { return r.econ; })));
+    var ecoSpan = (ecoMax - ecoMin) || 1, zero = -ecoMin / ecoSpan;
+    function ecoNota(r) {
+      if (r.nada) return "já é LED: nada a trocar";
+      if (r.payback !== null) return "investe " + moeda(r.inv) + ", se paga em " + tempoCurto(r.payback);
+      return r.led ? "já é LED; ganha lâmpadas para ter a luz recomendada" : "ganha lâmpadas para ter a luz recomendada";
+    }
+    $("bars-eco").innerHTML = ecoOrd.map(function (r) {
+      var neg = r.econ < -0.005, w = Math.abs(r.econ) / ecoSpan * 100;
+      return '<div class="eco-row"><div class="eco-name">' + esc(r.nome) + "<small>" + ecoNota(r) + '</small></div><div class="eco-track">' +
+        '<div class="eco-fill ' + (neg ? "neg" : "pos") + '" style="left:' + (neg ? (zero * 100 - w) : zero * 100) + "%;width:" + w + '%"></div>' +
+        (ecoMin < 0 ? '<div class="eco-zero" style="left:' + (zero * 100) + '%"></div>' : "") +
+        '</div><div class="eco-val' + (neg ? " neg" : "") + '">' + (r.econ > 0.005 ? "+" : "") + moedaS(r.econ) + "</div></div>";
+    }).join("") +
+      '<div class="eco-row tot"><div class="eco-name">Casa toda<small>investe ' + moeda(t.inv) + (t.payback !== null ? ", se paga em " + tempoCurto(t.payback) : "") +
+      '</small></div><div></div><div class="eco-val' + (t.econ < -0.005 ? " neg" : "") + '">' + (t.econ > 0.005 ? "+" : "") + moedaS(t.econ) + "</div></div>";
+    var maior = ecoOrd[0], perde = rs.filter(function (r) { return r.econ < -0.005; });
+    $("eco-sub").textContent = "Em reais por ano, somando conta de luz e troca de lâmpadas queimadas. Verde: o cômodo passa a gastar menos" +
+      (perde.length ? "; vermelho: gasta mais, porque hoje falta luz e ganha lâmpadas" : "") + "." +
+      (maior && maior.econ > 0 && t.econ > 0 ? " O maior ganho está em " + maior.nome + (maior.econ <= t.econ ? " (" + Math.round(maior.econ / t.econ * 100) + " % da economia da casa)." : ".") : "");
+
+    // Prioridade
+    $("tbl-prio").innerHTML =
+      "<thead><tr><th>Cômodo</th><th>Investimento</th><th>Economia por ano</th><th>Se paga em</th><th>Luz com LED</th></tr></thead><tbody>" +
+      ordemPrioridade(rs).map(function (r, i) {
+        return "<tr><td>" + (i + 1) + ". " + esc(r.nome) + "</td><td>" + moeda(r.inv) + "</td><td>" + moedaS(r.econ) + "</td><td>" +
+          (r.nada ? '<span class="pill ok">JÁ É LED: NADA A TROCAR</span>' : r.payback === null ? '<span class="pill na">SEM RETORNO</span>' : tempoTxt(r.payback)) + "</td><td>" +
+          (r.atA ? '<span class="pill na">JÁ ERA SUFICIENTE</span>' : '<span class="pill ok">PASSA A ATENDER</span>') + "</td></tr>";
+      }).join("") + "</tbody>";
+
+    // Ciclo de vida
+    var faixa = function (a, b) { return Math.abs(a - b) < 0.05 ? fmt(a, 1) : fmt(a, 1) + " a " + fmt(b, 1); };
+    $("tbl-vida").innerHTML =
+      "<thead><tr><th>Item (casa toda)</th><th>Hoje</th><th>Com LED</th></tr></thead><tbody>" +
+      "<tr><td>Quantas lâmpadas</td><td>" + t.qa + "</td><td>" + t.ql + "</td></tr>" +
+      "<tr><td>Quanto cada lâmpada dura nesse uso (anos)</td><td>" + faixa(t.vidaAMin, t.vidaAMax) + "</td><td>" + faixa(t.vidaMin, t.vidaMax) + "</td></tr>" +
+      "<tr><td>Lâmpadas que queimam por ano</td><td>" + fmt(t.trocA, 1) + "</td><td>" + fmt(t.trocL, 1) + "</td></tr>" +
+      "<tr><td>Gasto com reposição (R$ por ano, lâmpada + mão de obra)</td><td>" + moeda(t.manA) + "</td><td>" + moeda(t.manL) + "</td></tr>" +
+      "</tbody>";
+
+    // Sensores
+    var comCtrl = rs.filter(function (r) { return r.temCtrl || r.cctrl > 0; });
+    $("ctrl-wrap").hidden = !g.ctrl || !comCtrl.length;
+    if (!g.ctrl) {
+      $("ctrl-txt").innerHTML = "Não incluídos nesta simulação. Marque <strong>Usar sensores e controles nos cômodos</strong> no item 4 para ver quanto eles somam à economia do LED.";
+    } else if (!comCtrl.length) {
+      $("ctrl-txt").innerHTML = "Nenhum cômodo tem sensor. Abra um cômodo e preencha <strong>Sensores neste cômodo</strong>.";
+    } else {
+      $("ctrl-txt").innerHTML = t.econCtrl > 0
+        ? "Os sensores somam <strong>" + moeda(t.econCtrl) + " por ano</strong> à economia do LED" +
+          (t.cctrl > 0 ? " e custam " + moeda(t.cctrl) + (t.pbCtrl !== null ? ": sozinhos, se pagam em <strong>" + tempoTxt(t.pbCtrl) + "</strong>." : ".") : ", sem custo extra.")
+        : "Com os valores informados, os sensores não trazem economia extra.";
+      $("tbl-ctrl-c").innerHTML =
+        "<thead><tr><th>Cômodo</th><th>Sensores</th><th>Energia a menos (kWh/ano)</th><th>Economia extra (R$/ano)</th><th>Custo</th><th>Se paga em</th></tr></thead><tbody>" +
+        comCtrl.map(function (r) {
+          var it = [];
+          if (r.pres > 0) it.push("presença (" + pct(r.pres) + " do tempo vazio)");
+          if (r.tmr > 0) it.push("temporizador (" + fmt(r.tmr, 1) + " h/dia)");
+          if (r.dim > 0) it.push("dimmer (" + pct(r.dim) + ")");
+          return "<tr><td>" + esc(r.nome) + '</td><td class="l">' + (it.join("; ") || "—") + "</td><td>" + fmt(r.kwhS - r.kwhL, 0) + "</td><td>" + moeda(r.econCtrl) +
+            "</td><td>" + moeda(r.cctrl) + "</td><td>" + pbTxt(r.pbCtrl) + "</td></tr>";
+        }).join("") + "</tbody>";
+      $("tbl-ctrl").innerHTML =
+        "<thead><tr><th>Casa toda</th><th>Só LED</th><th>LED + sensores</th></tr></thead><tbody>" +
+        "<tr><td>Energia gasta (kWh por ano)</td><td>" + fmt(t.kwhS, 0) + "</td><td>" + fmt(t.kwhL, 0) + "</td></tr>" +
+        "<tr><td>Economia de energia em relação a hoje</td><td>" + fmt(t.reducaoS, 1) + " %</td><td>" + fmt(t.reducao, 1) + " %</td></tr>" +
+        "<tr><td>Conta de luz (R$ por ano)</td><td>" + moeda(t.custoS) + "</td><td>" + moeda(t.custoL) + "</td></tr>" +
+        "<tr><td>Reposição de lâmpadas (R$ por ano)</td><td>" + moeda(t.manS) + "</td><td>" + moeda(t.manL) + "</td></tr>" +
+        "<tr><td>Investimento</td><td>" + moeda(t.invLed) + "</td><td>" + moeda(t.inv) + "</td></tr>" +
+        "<tr><td>Se paga em</td><td>" + pbTxt(t.pbS) + "</td><td>" + pbTxt(t.payback) + "</td></tr>" +
+        "</tbody>";
+    }
+
+    $("pb-sub").textContent = "Casa toda. A linha amarela começa negativa com a compra (" + moeda(t.inv) + ") e sobe " + moeda(t.econ) +
+      " por ano com a economia na conta de luz e na reposição de lâmpadas. A tracejada é o mesmo saldo descontando os " + pct(g.tma) +
+      " ao ano que o dinheiro renderia aplicado. Onde a linha cruza o zero, a troca se pagou.";
+    graficoPayback(t, g);
+
+    $("hor-panel").hidden = !g.th;
+    if (g.th) {
+      $("tbl-hor").innerHTML =
+        "<thead><tr><th>Horário</th><th>Hoje (kWh/ano)</th><th>Com LED (kWh/ano)</th><th>Economia (kWh)</th><th>Economia (R$/ano)</th></tr></thead><tbody>" +
+        "<tr><td>Ponta (" + moeda(g.tp) + "/kWh)</td><td>" + fmt(t.pA, 0) + "</td><td>" + fmt(t.pL, 0) + "</td><td>" + fmt(t.pA - t.pL, 0) + "</td><td>" + moeda((t.pA - t.pL) * g.tp) + "</td></tr>" +
+        "<tr><td>Intermediário (" + moeda(g.ti) + "/kWh)</td><td>" + fmt(t.iA, 0) + "</td><td>" + fmt(t.iL, 0) + "</td><td>" + fmt(t.iA - t.iL, 0) + "</td><td>" + moeda((t.iA - t.iL) * g.ti) + "</td></tr>" +
+        "<tr><td>Fora de ponta (" + moeda(g.tf) + "/kWh)</td><td>" + fmt(t.fA, 0) + "</td><td>" + fmt(t.fL, 0) + "</td><td>" + fmt(t.fA - t.fL, 0) + "</td><td>" + moeda((t.fA - t.fL) * g.tf) + "</td></tr>" +
+        '<tr class="tot"><td>Total na conta (R$ por ano)</td><td>' + moeda(t.custoA) + "</td><td>" + moeda(t.custoL) + "</td><td>" + fmt(t.kwhE, 0) + "</td><td>" + moeda(t.econE) + "</td></tr>" +
+        "</tbody>";
+    }
+
+    $("viab-sub").textContent = "Compara a troca na casa toda com deixar o mesmo dinheiro aplicado a " + pct(g.tma) + " ao ano, por " + g.n +
+      " anos. VPL positivo: a troca rende mais que a aplicação. TIR: quanto a troca rende por ano.";
+    $("viab-kpis").innerHTML =
+      '<div><div class="lab">Payback simples</div><div class="val">' + pbTxt(t.payback) + "</div></div>" +
+      '<div><div class="lab">Payback descontado</div><div class="val">' + (vf.pbDesc === null ? "não se paga" : fmt(vf.pbDesc, 2) + " anos") + "</div></div>" +
+      '<div><div class="lab">VPL em ' + g.n + ' anos</div><div class="val">' + moedaS(vf.vpl) + "</div></div>" +
+      '<div><div class="lab">TIR</div><div class="val">' + (vf.tir === null ? "—" : fmt(vf.tir * 100, 1) + " % a.a.") + "</div></div>";
+    $("tbl-fluxo").innerHTML =
+      "<thead><tr><th>Ano</th><th>Fluxo do ano</th><th>Fluxo descontado</th><th>Saldo</th><th>Saldo descontado</th></tr></thead><tbody>" +
+      vf.anos.map(function (p) {
+        return "<tr><td>" + p.t + "</td><td>" + moedaS(p.f) + "</td><td>" + moedaS(p.fd) + "</td><td>" + moedaS(p.s) + "</td><td>" + moedaS(p.sd) + "</td></tr>";
+      }).join("") + "</tbody>";
+
+    var raMax = Math.max.apply(null, rs.map(function (r) { return r.raN; }));
+    var comUgr = rs.filter(function (r) { return r.ugrN > 0; });
+    var ugrMin = comUgr.length ? Math.min.apply(null, comUgr.map(function (r) { return r.ugrN; })) : 0;
+    function pbC(pb, inv) { return inv <= 0 ? "—" : (pb === null ? "sem retorno" : tempoCurto(pb)); }
+    function lin(rot, a, b, c) { return "<tr><td>" + rot + "</td><td>" + a + "</td><td>" + b + "</td><td>" + c + "</td></tr>"; }
+    $("tbl").innerHTML =
+      "<thead><tr><th>Item</th><th>Hoje</th><th>Troca direta</th><th>Otimizada" + (t.temCtrl ? " (LED + sensores)" : " (LED)") + "</th></tr></thead><tbody>" +
+      lin("Cômodos com a luz recomendada", t.nAtA + " de " + t.N, t.nAtD + " de " + t.N + " " + pill(t.nAtD === t.N), t.nAtL + " de " + t.N + " " + pill(t.nAtL === t.N)) +
+      lin("Quantidade de lâmpadas", t.qa, t.qD, t.ql) +
+      lin("Potência de todas as lâmpadas (W)", fmt(t.potA, 0), fmt(t.potD, 0), fmt(t.potL, 0)) +
+      lin("Potência por m² (W/m²)", fmt(t.potA / t.area, 2), fmt(t.potD / t.area, 2), fmt(t.potL / t.area, 2)) +
+      lin("Energia gasta (kWh por ano)", fmt(t.kwhA, 0), fmt(t.kwhD, 0), fmt(t.kwhL, 0)) +
+      lin("Conta de luz da iluminação (R$ por ano)", moeda(t.custoA), moeda(t.custoD), moeda(t.custoL)) +
+      lin("Conta de luz da iluminação (R$ por mês)", moeda(t.custoA / 12), moeda(t.custoD / 12), moeda(t.custoL / 12)) +
+      lin("Reposição de lâmpadas (R$ por ano)", moeda(t.manA), moeda(t.manD), moeda(t.manL)) +
+      lin("Gasto total (R$ por ano)", moeda(t.custoA + t.manA), moeda(t.custoD + t.manD), moeda(t.custoL + t.manL)) +
+      lin("Investimento", "—", moeda(t.invD), moeda(t.inv)) +
+      lin("Economia por ano", "—", moedaS(t.econD), moedaS(t.econ)) +
+      lin("Se paga em", "—", pbC(t.pbD, t.invD), pbC(t.payback, t.inv)) +
+      lin("Fidelidade de cor (IRC) — mín. " + fmt(raMax, 0), "—", fmt(g.ral, 0) + " " + pill(g.ral >= raMax), fmt(g.ral, 0) + " " + pill(g.ral >= raMax)) +
+      (comUgr.length ? lin("Ofuscamento (UGR) no escritório — máx. " + fmt(ugrMin, 0), "—", "—",
+        g.ugrl > 0 ? fmt(g.ugrl, 0) + " " + pill(g.ugrl <= ugrMin) : '<span class="pill na">VER CATÁLOGO</span>') : "") +
+      "</tbody>";
+
+    $("diag").innerHTML = diagnostico(res);
+
+    var f = "<div><b>Fórmulas usadas em cada cômodo</b>K = C·L / [h·(C + L)] · E = n·Φ·F<sub>u</sub>·F<sub>m</sub> / A · n<sub>LED</sub> = ⌈E<sub>mín</sub>·A / (Φ·F<sub>u</sub>·F<sub>m</sub>)⌉ · " +
+      "P = n·(P<sub>lâmpada</sub> + P<sub>reator</sub>) · E<sub>ano</sub> = P·h·d / 1000 · reposição = n·h·d / vida·(preço + mão de obra)</div>";
+    rs.forEach(function (r) {
+      f += "<h4>" + esc(r.nome) + "</h4>" +
+        "<div><b>Índice do recinto e F<sub>u</sub></b>K = " + fmt(r.comp, 2) + "·" + fmt(r.larg, 2) + " / [" + fmt(r.h, 2) + "·(" + fmt(r.comp, 2) + " + " + fmt(r.larg, 2) + ")] = " + fmt(r.k, 2) +
+          " → F<sub>u</sub> = " + fmt(r.fu, 2) + "</div>" +
+        "<div><b>Luz hoje e quantidade de LEDs</b>E<sub>hoje</sub> = " + r.qa + "·" + fmt(r.fa, 0) + "·" + fmt(r.fu, 2) + "·" + fmt(g.fm, 2) + " / " + fmt(r.area, 2) + " = " + fmt(r.eA, 1) + " lx · " +
+          (!r.led ? "n<sub>LED</sub> = ⌈" + fmt(r.em, 0) + "·" + fmt(r.area, 2) + " / (" + fmt(r.fl, 0) + "·" + fmt(r.fu, 2) + "·" + fmt(g.fm, 2) + ")⌉ = " + r.ql
+            : r.novos === 0 ? "já é LED e E<sub>hoje</sub> ≥ " + fmt(r.em, 0) + " lx: ficam as " + r.qa + " lâmpadas, nenhuma nova"
+            : "já é LED: ficam " + r.qa + "; n<sub>novos</sub> = ⌈(" + fmt(r.em, 0) + "·" + fmt(r.area, 2) + " / (" + fmt(r.fu, 2) + "·" + fmt(g.fm, 2) + ") − " + r.qa + "·" + fmt(r.fa, 0) + ") / " + fmt(r.fl, 0) + "⌉ = " + r.novos) +
+          " → E<sub>LED</sub> = " + fmt(r.eL, 1) + " lx</div>" +
+        "<div><b>Potência e energia</b>hoje: " + r.qa + "·(" + fmt(r.pa, 0) + " + " + fmt(r.reat, 0) + ") = " + fmt(r.potA, 0) + " W · " + fmt(r.horas, 0) + " h = " + fmt(r.kwhA, 0) + " kWh · " +
+          "LED: " + (!r.led ? r.ql + "·" + fmt(r.pl, 0) : r.novos === 0 ? r.qa + "·" + fmt(r.pa, 0) : r.qa + "·" + fmt(r.pa, 0) + " + " + r.novos + "·" + fmt(r.pl, 0)) + " = " + fmt(r.potL, 0) + " W" +
+          (r.temCtrl ? " · com sensores: " + fmt(r.potL, 0) + "·" + fmt(r.fP, 2) + " = " + fmt(r.potC, 0) + " W · " + fmt(r.horas, 0) + "·" + fmt(r.fH, 3) + " = " + fmt(r.horasC, 0) + " h"
+                     : " · " + fmt(r.horas, 0) + " h") + " = " + fmt(r.kwhL, 0) + " kWh</div>" +
+        "<div><b>Dinheiro</b>conta " + moeda(r.custoA) + " → " + moeda(r.custoL) + " · reposição " + moeda(r.manA) + " → " + moeda(r.manL) + " · economia " + moedaS(r.econ) +
+          " por ano · investimento " + r.novos + "·" + moeda(r.preco + g.inst) + (r.cctrl > 0 ? " + " + moeda(r.cctrl) : "") + " = " + moeda(r.inv) + "</div>";
+    });
+    f += "<h4>Casa toda</h4>" +
+      (g.th ? "<div><b>Tarifa Branca</b>kWh<sub>ponta</sub> = P·h<sub>ponta</sub>·d·252/365 (o mesmo para o intermediário); o resto é fora de ponta. C = kWh<sub>p</sub>·T<sub>p</sub> + kWh<sub>i</sub>·T<sub>i</sub> + kWh<sub>f</sub>·T<sub>f</sub> → hoje: " +
+        fmt(t.pA, 0) + "·" + fmt(g.tp, 2) + " + " + fmt(t.iA, 0) + "·" + fmt(g.ti, 2) + " + " + fmt(t.fA, 0) + "·" + fmt(g.tf, 2) + " = " + moeda(t.custoA) +
+        " · LED: " + fmt(t.pL, 0) + "·" + fmt(g.tp, 2) + " + " + fmt(t.iL, 0) + "·" + fmt(g.ti, 2) + " + " + fmt(t.fL, 0) + "·" + fmt(g.tf, 2) + " = " + moeda(t.custoL) + "</div>" : "") +
+      "<div><b>Economia anual</b>Σ (Δconta + Δreposição) = " + moedaS(t.econE) + " + " + moedaS(t.econM) + " = " + moedaS(t.econ) + "</div>" +
+      "<div><b>Emissões evitadas</b>CO₂ = ΔE · 0,0385 = " + fmt(t.kwhE, 0) + " · 0,0385 = " + fmt(t.co2, 1) + " kg/ano</div>" +
+      "<div><b>Payback simples</b>PB = I / economia anual = " + moeda(t.inv) + " / " + moeda(t.econ) + " = " + (t.payback === null ? "sem retorno" : fmt(t.payback, 2) + " anos") + "</div>" +
+      "<div><b>Valor presente líquido</b>VPL = −I + Σ economia / (1 + k)<sup>t</sup>, t = 1 … " + g.n + " = −" + moeda(t.inv) + " + Σ " + moeda(t.econ) + " / (1 + " +
+        fmt(g.tma / 100, 4) + ")<sup>t</sup> = " + moedaS(vf.vpl) + "</div>" +
+      "<div><b>Payback descontado</b>Ano em que o saldo descontado fica positivo (com interpolação) = " + (vf.pbDesc === null ? "não ocorre em " + g.n + " anos" : fmt(vf.pbDesc, 2) + " anos") + "</div>" +
+      "<div><b>Taxa interna de retorno</b>TIR = taxa em que VPL = 0 → " + (vf.tir === null ? "não existe (a troca não se paga no prazo)" : fmt(vf.tir * 100, 2) + " % ao ano") + "</div>";
+    $("formulas").innerHTML = f;
+  }
+
+  // ---------------------------------------------------------------------
+  // Guardar no navegador (só para quem está usando)
+  // ---------------------------------------------------------------------
+  var IDS_GLOBAIS = ["local", "da", "tar", "tp", "ti", "tf", "inst", "tma", "hz", "plano", "fm", "ra_l", "ugr_l"];
+  var PADRAO = {};
+  IDS_GLOBAIS.forEach(function (id) { PADRAO[id] = $(id).value; });
+  var carregando = false;
+  function salvar() {
+    if (carregando) return;
+    try {
+      var s = { v: {}, th: $("th").checked, ctrl: $("ctrl").checked, rooms: cartoes().map(dadosDoCartao) };
+      IDS_GLOBAIS.forEach(function (id) { s.v[id] = $(id).value; });
+      localStorage.setItem(CHAVE, JSON.stringify(s));
+    } catch (e) {}
+  }
+  function carregar() {
+    try {
+      var s = JSON.parse(localStorage.getItem(CHAVE) || "null");
+      if (!s || !s.rooms || !s.rooms.length) return false;
+      IDS_GLOBAIS.forEach(function (id) { if (s.v[id] != null) $(id).value = s.v[id]; });
+      $("th").checked = !!s.th; $("ctrl").checked = s.ctrl !== false;
+      roomsBox.innerHTML = "";
+      s.rooms.forEach(function (d, i) {
+        var c = criarComodo(NOVO, i === 0);
+        todos("[data-k]", c).forEach(function (f) { var k = f.getAttribute("data-k"); if (d[k] != null) f.value = d[k]; });
+        roomsBox.appendChild(c);
+      });
+      numerar();
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // ---------------------------------------------------------------------
+  // Eventos
+  // ---------------------------------------------------------------------
+  $("form").addEventListener("input", function (e) {
+    var room = e.target.closest && e.target.closest("[data-room]"), k = e.target.getAttribute("data-k");
+    if (room && CAMPOS_A.indexOf(k) >= 0) conferirTipo(room, "A");
+    if (room && CAMPOS_L.indexOf(k) >= 0) conferirTipo(room, "L");
+    render();
+  });
+  $("form").addEventListener("change", function (e) {
+    var room = e.target.closest && e.target.closest("[data-room]"), k = e.target.getAttribute("data-k");
+    if (room && k === "tipoA") {
+      aplicarTipo(room, "A");
+      var tA = campoDe(room, "tipoA").value;
+      if (tA !== "x") campoDe(room, "led").value = HOJE_LED[tA] ? "1" : "0";
+      // Num cômodo que já é LED, o LED sugerido para acrescentar é o mesmo modelo
+      if (HOJE_LED[tA]) { campoDe(room, "tipoL").value = tA.slice(1); aplicarTipo(room, "L"); }
+    }
+    if (room && k === "tipoL") aplicarTipo(room, "L");
+    render();
+  });
+  $("form").addEventListener("submit", function (e) { e.preventDefault(); });
+  roomsBox.addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-act]");
+    if (!b) return;
+    var room = b.closest("[data-room]");
+    if (b.getAttribute("data-act") === "del") {
+      if (cartoes().length > 1) room.remove();
+    } else {
+      var d = dadosDoCartao(room);
+      var novo = criarComodo(NOVO, true);
+      todos("[data-k]", novo).forEach(function (f) { var k = f.getAttribute("data-k"); if (d[k] != null) f.value = d[k]; });
+      campoDe(novo, "nome").value = d.nome + " (cópia)";
+      room.open = false;
+      room.after(novo);
+    }
+    numerar();
+    render();
+  });
+  $("add").addEventListener("click", function () {
+    cartoes().forEach(function (c) { c.open = false; });
+    var c = criarComodo(NOVO, true);
+    roomsBox.appendChild(c);
+    numerar();
+    render();
+    campoDe(c, "nome").focus();
+    campoDe(c, "nome").select();
+  });
+  $("calc").addEventListener("click", function () {
+    render();
+    var ruim = document.querySelector("form [aria-invalid=true]");
+    if (ruim) {
+      var card = ruim.closest("details");
+      if (card) card.open = true;
+      ruim.scrollIntoView({ behavior: "smooth", block: "center" });
+      ruim.focus({ preventScroll: true });
+      return;
+    }
+    var r = $("results");
+    r.scrollIntoView({ behavior: "smooth", block: "start" });
+    r.classList.remove("piscar"); void r.offsetWidth; r.classList.add("piscar");
+  });
+  $("reset").addEventListener("click", function () {
+    IDS_GLOBAIS.forEach(function (id) { $(id).value = PADRAO[id]; });
+    $("th").checked = false;
+    $("ctrl").checked = true;
+    montarCasa(EXEMPLO, true);
+    render();
+  });
+  $("v-hoje").addEventListener("click", function () { vista = "hoje"; if (ultimo) desenharPlantas(ultimo); });
+  $("v-led").addEventListener("click", function () { vista = "led"; if (ultimo) desenharPlantas(ultimo); });
+  $("print").addEventListener("click", function () {
+    var m = document.querySelector(".memorial"); if (m) m.open = true;
+    window.print();
+  });
+
+  // Alternar tema (em projetor o claro costuma ficar mais legível)
+  var root = document.documentElement;
+  function escuroAtivo() {
+    var t = root.getAttribute("data-theme");
+    if (t) return t === "dark";
+    return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  }
+  function rotuloTema() { $("theme").textContent = escuroAtivo() ? "Tema claro" : "Tema escuro"; }
+  try { var salvo = localStorage.getItem("tema"); if (salvo) root.setAttribute("data-theme", salvo); } catch (e) {}
+  $("theme").addEventListener("click", function () {
+    var novo = escuroAtivo() ? "light" : "dark";
+    root.setAttribute("data-theme", novo);
+    try { localStorage.setItem("tema", novo); } catch (e) {}
+    rotuloTema();
+  });
+  rotuloTema();
+
+  carregando = true;
+  if (!carregar()) montarCasa(EXEMPLO, true);
+  carregando = false;
+  render();
+})();
+</script>
